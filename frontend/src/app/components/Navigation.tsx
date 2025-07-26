@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Zap, Search, Settings, Menu, X, User, LogOut } from "lucide-react";
 
 import { AlbyUser } from "../services/albyAuth";
-import Image from "next/image";
+// import Image from "next/image";
 
 interface NavigationProps {
   currentPage: string;
