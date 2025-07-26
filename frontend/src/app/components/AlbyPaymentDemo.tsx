@@ -28,7 +28,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
 
       // In a real app, you would get the invoice from the seller
       // For demo purposes, we'll create a test payment request
-      const paymentRequest = await lnClient.requestPayment(USD(price * 0.00000001)); // Convert sats to USD
+      await lnClient.requestPayment(USD(price * 0.00000001)); // Convert sats to USD
       
       // Simulate payment success
       setTimeout(() => {

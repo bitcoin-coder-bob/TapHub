@@ -1,10 +1,10 @@
 import { Plus, Package, Zap, DollarSign } from "lucide-react";
 
 interface AssetListingDashboardProps {
-  onNavigate: (page: string, params?: any) => void;
+  onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
-export function AssetListingDashboard({ onNavigate }: AssetListingDashboardProps) {
+export function AssetListingDashboard({ onNavigate: _onNavigate }: AssetListingDashboardProps) {
   // Mock user assets
   const userAssets = [
     {

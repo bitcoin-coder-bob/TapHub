@@ -8,11 +8,11 @@ import {
 
 interface AssetPurchaseFlowProps {
   assetId?: string;
-  onNavigate: (page: string, params?: any) => void;
+  onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function AssetPurchaseFlow({
-  assetId = "1",
+  assetId: _assetId = "1",
   onNavigate,
 }: AssetPurchaseFlowProps) {
   const [step, setStep] = useState(1);

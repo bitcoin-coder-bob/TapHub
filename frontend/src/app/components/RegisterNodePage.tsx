@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Zap, Wallet, Server, ArrowRight, ExternalLink, CheckCircle } from "lucide-react";
-import { albyAuth, NodeRegistrationData, AlbyUser } from "../services/albyAuth";
+import { albyAuth, AlbyUser } from "../services/albyAuth";
 
 interface RegisterNodePageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;

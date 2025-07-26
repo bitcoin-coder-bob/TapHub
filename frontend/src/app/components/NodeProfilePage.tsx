@@ -1,11 +1,11 @@
 import { Zap, Star, Shield } from "lucide-react";
 
 interface NodeProfilePageProps {
-  onNavigate: (page: string, params?: any) => void;
+  onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function NodeProfilePage({
-  onNavigate,
+  onNavigate: _onNavigate,
 }: NodeProfilePageProps) {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
