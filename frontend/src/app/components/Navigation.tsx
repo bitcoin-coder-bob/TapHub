@@ -66,12 +66,15 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
           <div className="hidden md:flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                <button
+                  onClick={() => onNavigate("profile")}
+                  className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
+                >
                   <User className="w-4 h-4 text-primary" />
                   <span className="text-sm">
                     {user.type === 'node' ? (user.alias || 'Node Runner') : (user.email || 'User')}
                   </span>
-                </div>
+                </button>
                 <button
                   onClick={onLogout}
                   className="px-3 py-2 text-muted-foreground hover:text-foreground rounded-lg text-sm transition-colors flex items-center gap-1"
@@ -138,14 +141,20 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
               <div className="pt-2 border-t border-border mt-2 space-y-2">
                 {user ? (
                   <>
-                    <div className="px-3 py-2 bg-primary/10 rounded-lg text-sm">
+                    <button
+                      className="w-full px-3 py-2 bg-primary/10 rounded-lg text-sm hover:bg-primary/20 transition-colors text-left"
+                      onClick={() => {
+                        onNavigate("profile");
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-primary" />
                         <span>
                           {user.type === 'node' ? (user.alias || 'Node Runner') : (user.email || 'User')}
                         </span>
                       </div>
-                    </div>
+                    </button>
                     <button
                       className="w-full px-3 py-2 text-muted-foreground hover:text-foreground rounded-lg text-sm transition-colors flex items-center gap-2"
                       onClick={() => {
