@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "./components/Navigation";
 import { LandingPage } from "./components/LandingPage";
 import { LoginPage } from "./components/LoginPage";
@@ -9,18 +9,22 @@ import { NodeProfilePage } from "./components/NodeProfilePage";
 import { RegisterNodePage } from "./components/RegisterNodePage";
 import { AssetListingDashboard } from "./components/AssetListingDashboard";
 import { AssetPurchaseFlow } from "./components/AssetPurchaseFlow";
-
-interface User {
-  type: 'user' | 'node';
-  email?: string;
-  pubkey?: string;
-  alias?: string;
-}
+import { albyAuth, AlbyUser } from "./services/albyAuth";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("home");
   const [pageParams, setPageParams] = useState<Record<string, unknown>>({});
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AlbyUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check for existing authentication on mount
+  useEffect(() => {
+    const currentUser = albyAuth.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
+    }
+    setIsLoading(false);
+  }, []);
 
   const navigate = (page: string, params: Record<string, unknown> = {}) => {
     setCurrentPage(page);
@@ -28,11 +32,12 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleLogin = (userType: 'user' | 'node', userData: User) => {
+  const handleLogin = (userType: 'user' | 'node', userData: AlbyUser) => {
     setUser(userData);
   };
 
   const handleLogout = () => {
+    albyAuth.logout();
     setUser(null);
     navigate('home');
   };
@@ -48,7 +53,7 @@ export default function App() {
       case "profile":
         return <NodeProfilePage onNavigate={navigate} />;
       case "register":
-        return <RegisterNodePage onNavigate={navigate} />;
+        return <RegisterNodePage onNavigate={navigate} onLogin={handleLogin} />;
       case "dashboard":
         return <AssetListingDashboard onNavigate={navigate} />;
       case "purchase":
@@ -95,6 +100,14 @@ export default function App() {
         return <LandingPage onNavigate={navigate} />;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="dark min-h-screen bg-background text-foreground">

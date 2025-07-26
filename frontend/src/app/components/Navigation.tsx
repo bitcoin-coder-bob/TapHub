@@ -1,19 +1,16 @@
 import { useState } from "react";
 import { Zap, Search, Settings, Menu, X, User, LogOut } from "lucide-react";
 
-interface User {
-  type: 'user' | 'node';
-  email?: string;
-  pubkey?: string;
-  alias?: string;
-}
+import { AlbyUser } from "../services/albyAuth";
 
 interface NavigationProps {
   currentPage: string;
   onNavigate: (page: string) => void;
-  user?: User | null;
+  user?: AlbyUser | null;
   onLogout?: () => void;
 }
+
+
 
 export function Navigation({ currentPage, onNavigate, user, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

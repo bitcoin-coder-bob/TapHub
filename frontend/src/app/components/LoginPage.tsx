@@ -1,53 +1,79 @@
-import { useState } from "react";
-import { Zap, User, Server, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Zap, User, Server, ArrowRight, Wallet, AlertCircle } from "lucide-react";
+import { albyAuth, AlbyUser } from "../services/albyAuth";
 
 interface LoginPageProps {
   onNavigate: (page: string) => void;
-  onLogin: (userType: 'user' | 'node', userData: any) => void;
+  onLogin: (userType: 'user' | 'node', userData: AlbyUser) => void;
 }
 
 export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   const [authType, setAuthType] = useState<'user' | 'node'>('user');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nwcCredentials, setNwcCredentials] = useState('');
   
-  const [userForm, setUserForm] = useState({
-    email: '',
-    password: ''
-  });
-  
-  const [nodeForm, setNodeForm] = useState({
-    pubkey: '',
-    signature: '',
-    message: ''
-  });
+  // Check for existing credentials on mount
+  useEffect(() => {
+    const storedCredentials = albyAuth.getStoredCredentials();
+    if (storedCredentials) {
+      setNwcCredentials(storedCredentials);
+    }
+  }, []);
 
-  const handleUserLogin = async (e: React.FormEvent) => {
+  const handleAlbyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
-    // Simulate authentication
-    setTimeout(() => {
-      onLogin('user', { email: userForm.email, type: 'user' });
+    try {
+      if (!nwcCredentials.trim()) {
+        throw new Error('Please enter your Nostr Wallet Connect credentials');
+      }
+
+      const user = await albyAuth.connectWithAlby(nwcCredentials);
+      onLogin(user.type, user);
+      
+      // Navigate based on user type
+      if (user.type === 'node') {
+        onNavigate('dashboard');
+      } else {
+        onNavigate('discover');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect with Alby');
+    } finally {
       setIsLoading(false);
-      onNavigate('discover');
-    }, 1000);
+    }
   };
 
-  const handleNodeLogin = async (e: React.FormEvent) => {
+  const handleNodeRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
-    // Simulate node authentication
-    setTimeout(() => {
-      onLogin('node', { 
-        pubkey: nodeForm.pubkey, 
-        type: 'node',
-        alias: 'Node Operator'
+    try {
+      if (!nwcCredentials.trim()) {
+        throw new Error('Please enter your Nostr Wallet Connect credentials');
+      }
+
+      // First connect as a user
+      const user = await albyAuth.connectWithAlby(nwcCredentials);
+      
+      // Then register as a node
+      const nodeUser = await albyAuth.registerAsNode({
+        pubkey: user.pubkey,
+        alias: 'Node Runner',
+        credentials: nwcCredentials
       });
-      setIsLoading(false);
+      
+      onLogin('node', nodeUser);
       onNavigate('dashboard');
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to register as node');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -58,7 +84,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         </div>
         <h1 className="text-2xl mb-2">Sign In to TapHub</h1>
         <p className="text-muted-foreground">
-          Access your Lightning Network marketplace
+          Connect your Alby wallet to access the Lightning Network marketplace
         </p>
       </div>
 
@@ -89,121 +115,56 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
           </button>
         </div>
 
-        {/* User Login Form */}
-        {authType === 'user' && (
-          <form onSubmit={handleUserLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm mb-2">Email</label>
-              <input
-                type="email"
-                value={userForm.email}
-                onChange={(e) => setUserForm({...userForm, email: e.target.value})}
-                placeholder="your@email.com"
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-2">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={userForm.password}
-                  onChange={(e) => setUserForm({...userForm, password: e.target.value})}
-                  placeholder="Enter your password"
-                  className="w-full px-3 py-2 pr-10 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  Sign In
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+        {/* Error Display */}
+        {error && (
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-destructive" />
+            <span className="text-sm text-destructive">{error}</span>
+          </div>
         )}
 
-        {/* Node Runner Login Form */}
-        {authType === 'node' && (
-          <form onSubmit={handleNodeLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm mb-2">Node Public Key</label>
+        {/* Alby Connection Form */}
+        <form onSubmit={authType === 'user' ? handleAlbyLogin : handleNodeRegistration} className="space-y-4">
+          <div>
+            <label className="block text-sm mb-2">Nostr Wallet Connect Credentials</label>
+            <div className="relative">
+              <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                value={nodeForm.pubkey}
-                onChange={(e) => setNodeForm({...nodeForm, pubkey: e.target.value})}
-                placeholder="03a1b2c3d4e5f6789abcdef..."
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
+                value={nwcCredentials}
+                onChange={(e) => setNwcCredentials(e.target.value)}
+                placeholder="nostr+walletconnect://..."
+                className="w-full pl-10 pr-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
                 required
               />
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Get your NWC credentials from Alby Hub, coinos, Primal, or other NWC-enabled wallets
+            </p>
+          </div>
 
-            <div>
-              <label className="block text-sm mb-2">Authentication Message</label>
-              <input
-                type="text"
-                value={nodeForm.message}
-                onChange={(e) => setNodeForm({...nodeForm, message: e.target.value})}
-                placeholder="TapHub-login-2024"
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-2">Signature</label>
-              <textarea
-                value={nodeForm.signature}
-                onChange={(e) => setNodeForm({...nodeForm, signature: e.target.value})}
-                placeholder="Cryptographic signature proving node ownership..."
-                rows={3}
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm resize-none"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  Verify & Sign In
-                </>
-              )}
-            </button>
-          </form>
-        )}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                {authType === 'user' ? 'Connect Wallet' : 'Register as Node'}
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
 
         {/* Help Text */}
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground">
             {authType === 'user' 
-              ? 'Regular users can browse and purchase Taproot Assets from verified Lightning nodes.'
-              : 'Node runners can list assets for sale and access the seller dashboard. Sign the authentication message with your node\'s private key to verify ownership.'
+              ? 'Connect your Alby wallet to browse and purchase Taproot Assets from verified Lightning nodes.'
+              : 'Register your Lightning node to list assets for sale and access the seller dashboard. You&apos;ll need NWC credentials from your node.'
             }
           </p>
         </div>
@@ -215,21 +176,32 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
             onClick={() => setAuthType(authType === 'user' ? 'node' : 'user')}
           >
             {authType === 'user' 
-              ? 'Are you a Lightning node operator? Sign in here'
-              : 'Regular user? Sign in with email instead'
+              ? 'Are you a Lightning node operator? Register here'
+              : 'Regular user? Connect your wallet instead'
             }
           </button>
         </div>
 
-        {/* Register Links */}
-        <div className="mt-4 text-center">
+        {/* Help Links */}
+        <div className="mt-4 text-center space-y-2">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{' '}
+            Don&apos;t have NWC credentials?{' '}
+            <a 
+              href="https://nwc.getalby.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Get them from Alby Hub
+            </a>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Need help?{' '}
             <button
               className="text-primary hover:underline"
               onClick={() => onNavigate('register')}
             >
-              Register your node
+              View setup guide
             </button>
           </p>
         </div>
