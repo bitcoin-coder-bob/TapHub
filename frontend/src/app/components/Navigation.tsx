@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Zap, Search, Settings, Menu, X, User, LogOut } from "lucide-react";
 
 import { AlbyUser } from "../services/albyAuth";
+import Image from "next/image";
 
 interface NavigationProps {
   currentPage: string;
@@ -30,10 +31,14 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onNavigate("home")}
           >
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-primary-foreground" />
+            <div className="w-8 h-8 white rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl">TapHub</span>
+            <div className="flex items-center gap-1">
+              <span className="text-xl">Tap</span>
+              <span className="text-xl bg-[#ff8c00] text-black px-2 py-1 rounded-lg">Hub</span>
+            </div>
+            {/* <Image src="/Tap.png" alt="Taphub" width={32} height={32} /> */}
           </div>
 
           {/* Desktop Navigation */}
