@@ -14,10 +14,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnwire"
 
-	"github.com/lightninglabs/taproot-assets/asset"
-	"github.com/lightninglabs/taproot-assets/fn"
 	"github.com/lightninglabs/taproot-assets/rfqmath"
-	"github.com/lightninglabs/taproot-assets/rfqmsg"
 
 	// prv "github.com/JoltzRewards/lightning-terminal-private/litrpc"
 
@@ -32,8 +29,6 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
-var Port string
-var OracleRpcUri string
 var rpcServerLnd string
 var rpcServerTap string
 
@@ -43,7 +38,9 @@ var lndtTlsCertPath string
 var lndMacaroonPath string
 var assetId string
 var peerPk string
-var satsToGet int64
+var rfqAddr string
+
+var assetUnitsToGet int64
 var network string
 
 type CustomChannelData struct {
@@ -81,19 +78,18 @@ type LocalAsset struct {
 }
 
 func setFlags() {
-	flag.StringVar(&Port, "port", "8081", "")
-	flag.StringVar(&OracleRpcUri, "oracle_rpc_uri", "", "")
 	flag.StringVar(&rpcServerLnd, "rpcserverLnd", "127.0.0.1:10009", "rpc server of node")
 	flag.StringVar(&rpcServerTap, "rpcserverTap", "127.0.0.1:10009", "rpc server of node")
 	flag.StringVar(&assetId, "assetId", "", "asset id to swap to")
 	flag.StringVar(&peerPk, "peerPk", "", "asset id to swap to")
-	flag.Int64Var(&satsToGet, "satsToGet", 5000, "sats to get from the swap")
+	flag.StringVar(&rfqAddr, "rfqAddr", "0.0.0.0:8096", "rfq post:hort")
+	flag.Int64Var(&assetUnitsToGet, "assetUnitsToGet", 5, "asset units set on the asset invoice")
 
 	flag.StringVar(&tapTlsCertPath, "tap-tlscertPath", "/home/bob/.lit/tls.cert", "path to tap tls cert")
 	flag.StringVar(&tapMacaroonPath, "tap-macaroonPath", "/home/bob/.tapd/data/testnet4/admin.macaroon", "path to lit macaroon")
 	flag.StringVar(&lndtTlsCertPath, "lnd-tlscertPath", "/home/bob/.lnd/tls.cert", "path to lnd tls cert")
 	flag.StringVar(&lndMacaroonPath, "lnd-macaroonPath", "/home/bob/.lnd/data/chain/bitcoin/testnet4/admin.macaroon", "path to lnd macaroon")
-	flag.StringVar(&network, "network", "testnet4", "which lightning network")
+	flag.StringVar(&network, "network", "regtest", "which lightning network")
 
 	flag.Parse()
 }
@@ -106,6 +102,9 @@ func main() {
 	fmt.Printf("tapMacaroonPath: %s\n", tapMacaroonPath)
 	fmt.Printf("lndtTlsCertPath: %s\n", lndtTlsCertPath)
 	fmt.Printf("lndMacaroonPath: %s\n", lndMacaroonPath)
+	fmt.Printf("assetId: %s\n", assetId)
+	fmt.Printf("peerPk: %s\n", peerPk)
+	fmt.Printf("rfqAddr: %s\n", rfqAddr)
 	fmt.Printf("network: %s\n", network)
 	tapConn, err := setupNodeConn(rpcServerTap, tapMacaroonPath, tapTlsCertPath, "", "")
 	if err != nil {
@@ -135,15 +134,14 @@ func main() {
 
 	rc := routerrpc.NewRouterClient(lndConn)
 
-	oracle := ""
-	orc, err := rfq.NewRpcPriceOracle("rfqrpc://"+oracle, false)
+	orc, err := rfq.NewRpcPriceOracle("rfqrpc://"+rfqAddr, false)
 	if err != nil {
 		fmt.Printf("error with NewRpcPriceOracle: %s", err.Error())
 		return
 	}
 
 	tapChannelClient := tapchannelrpc.NewTaprootAssetChannelsClient(tapConn)
-	err = SwapSatsToAsset(ln, tc, rc, tapChannelClient, orc, assetId, peerPk, satsToGet)
+	err = SwapSatsToAsset(ln, tc, rc, tapChannelClient, orc, assetId, peerPk, assetUnitsToGet)
 	if err != nil {
 		fmt.Println("error swapping: ", err)
 		return
@@ -174,6 +172,7 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		fmt.Printf("error listing eligible channels to send sats: %s", err.Error())
 		return err
 	}
+	fmt.Printf("eligible chan ids: %v\n", eligibleChannels)
 	assetHex, err := hex.DecodeString(assetId)
 	if err != nil {
 		return err
@@ -184,11 +183,11 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		return err
 	}
 
-	res, err := oracle.QueryAskPrice(context.Background(), asset.NewSpecifierFromId(asset.ID(assetHex)), fn.Some(uint64(0)), fn.Option[lnwire.MilliSatoshi]{}, fn.Some(rfqmsg.AssetRate{}))
-	if err != nil {
-		panic(err)
-	}
-
+	// res, err := oracle.QueryAskPrice(context.Background(), asset.NewSpecifierFromId(asset.ID(assetHex)), fn.Some(uint64(0)), fn.Option[lnwire.MilliSatoshi]{}, fn.Some(rfqmsg.AssetRate{}))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	fmt.Printf("did query ask price\n")
 	cc1, err := lc.ListChannels(context.Background(), &lnrpc.ListChannelsRequest{})
 	if err != nil {
 		fmt.Printf("error listing channels 1: %s", err.Error())
@@ -223,6 +222,7 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		fmt.Printf("error getting eligible asset channels: %v\n", err)
 		return err
 	}
+	fmt.Printf("eligible asset channels: %v\n", eligibleAssetChannels)
 	if len(eligibleAssetChannels) == 0 {
 		fmt.Printf("no eligible asset channels found\n")
 		return err
@@ -245,57 +245,16 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		}
 	}
 	fmt.Printf("using scid for route hint of taproot asset channel: %d\n", scidToUse)
-	unitsRequestingFromSwap, _ := SatsRateToAsset(res.AssetRate.Rate, float64(assetUnitsToGet), 0)
-
-	demo := &tapchannelrpc.AddInvoiceRequest{
-		AssetId:     assetHex,
-		AssetAmount: uint64(unitsRequestingFromSwap),
-		// we will need to populate this if we have multiple asset channels on our node
-		PeerPubkey:     marketMakerHex,
-		InvoiceRequest: &lnrpc.Invoice{Expiry: 60},
-	}
-	fmt.Printf("sending off invoice: %v\n", demo)
-	// create an invoice for the depix asset
+	// unitsRequestingFromSwap := SatsRateToAsset(res.AssetRate.Rate, float64(assetUnitsToGet), 0)
+	fmt.Printf("unitsRequestingFromSwap setting on asset invoice: %d\n", assetUnitsToGet)
 	paymentRequest, err := tac.AddInvoice(context.TODO(), &tapchannelrpc.AddInvoiceRequest{
 		AssetId:     assetHex,
-		AssetAmount: uint64(unitsRequestingFromSwap),
+		AssetAmount: uint64(assetUnitsToGet),
 
 		// we will need to populate this if we have multiple asset channels on our node
 		PeerPubkey: marketMakerHex,
 		InvoiceRequest: &lnrpc.Invoice{
-			// Private: true,
 			Expiry: 300,
-			// RouteHints: []*lnrpc.RouteHint{
-			// 	{
-			// 		HopHints: []*lnrpc.HopHint{
-			// 			// {
-			// 			// 	NodeId:                    h.marketMakerPubkey,
-			// 			// 	ChanId:                    eligibleChannels[0],
-			// 			// 	FeeBaseMsat:               0,
-			// 			// 	FeeProportionalMillionths: 0,
-			// 			// 	CltvExpiryDelta:           144,
-			// 			// },
-			// 			// {
-			// 			// 	NodeId: node1Info.IdentityPubkey,
-			// 			// 	ChanId: scidToUse,
-			// 			// 	// ChanId: eligibleAssetChannels[0],
-			// 			// 	// ChanId:                    eligibleChannels[0],
-			// 			// 	FeeBaseMsat:               0,
-			// 			// 	FeeProportionalMillionths: 0,
-			// 			// 	CltvExpiryDelta:           144,
-			// 			// },
-			// 			{
-			// 				NodeId: h.marketMakerPubkey,
-			// 				ChanId: scidToUse,
-			// 				// ChanId: eligibleAssetChannels[0],
-			// 				// ChanId:                    eligibleChannels[0],
-			// 				FeeBaseMsat:               1000,
-			// 				FeeProportionalMillionths: 1,
-			// 				CltvExpiryDelta:           80,
-			// 			},
-			// 		},
-			// 	},
-			// },
 		},
 	})
 	if err != nil {
@@ -303,60 +262,15 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		return err
 	}
 	fmt.Printf("scid used in accepted buy quote: %d\n", paymentRequest.AcceptedBuyQuote.Scid)
+	fmt.Printf("invoice payment request str: %s\n", paymentRequest.InvoiceResult.PaymentRequest)
+	lookedupInvoice, err := lc.LookupInvoice(context.TODO(), &lnrpc.PaymentHash{RHash: paymentRequest.InvoiceResult.RHash})
+	if err != nil {
+		fmt.Printf("error looking up invoice: %s\n", err.Error())
+		return err
+	}
 	fmt.Printf("old scid used: %d  but now updating to: %d\n", scidToUse, paymentRequest.AcceptedBuyQuote.Scid)
 	scidToUse = paymentRequest.AcceptedBuyQuote.Scid
-	// coeff, err := strconv.ParseUint(paymentRequest.AcceptedBuyQuote.AskAssetRate.Coefficient, 10, 64)
-	// if err != nil {
-	// 	fmt.Printf("error converting buy quote string to uint64: %v\n", err)
-	// 	return err
-	// }
-	// fp := rfqmath.NewBigIntFixedPoint(coeff, uint8(paymentRequest.AcceptedBuyQuote.AskAssetRate.Scale))
-
-	// pay the invoice with sats
-
-	// htlcAttempt, err := rc.SendToRouteV2(context.TODO(), &routerrpc.SendToRouteRequest{
-	// 	PaymentHash: paymentRequest.InvoiceResult.RHash,
-	// 	Route: &lnrpc.Route{
-	// 		TotalTimeLock:      1000,
-	// 		TotalFeesMsat:      5000,
-	// 		TotalAmtMsat:       500000,
-	// 		FirstHopAmountMsat: 500000,
-	// 		Hops: []*lnrpc.Hop{
-	// 			{
-	// 				ChanId:           eligibleChannels[0],
-	// 				PubKey:           h.marketMakerPubkey,
-	// 				AmtToForwardMsat: 500000,
-	// 				Expiry:           1000,
-	// 				FeeMsat:          0,
-	// 			},
-	// 			{
-	// 				ChanId:           eligibleAssetChannels[0],
-	// 				PubKey:           node1Info.IdentityPubkey,
-	// 				Expiry:           1000,
-	// 				AmtToForwardMsat: 500000,
-	// 				FeeMsat:          0,
-	// 			},
-	// 		},
-	// 	}})
-	// if err != nil {
-	// 	fmt.Printf("error with sending swap payment with custom route: %s", err.Error())
-	// 	return
-	// }
-	// fmt.Printf("market maker pubkey: %s\n", h.marketMakerPubkey)
-
-	// fmt.Printf("htlc attempt status: %v\n", htlcAttempt.Status.String())
-	// htlcRoute := htlcAttempt.Route
-	// for _, hop := range htlcRoute.Hops {
-	// 	fmt.Printf("htlc hop taken chid: %d pubkey:%s\n", hop.ChanId, hop.PubKey)
-	// }
-	// fmt.Printf("htlc attempt failure code: %v\n", htlcAttempt.Failure.Code.String())
-	// fmt.Printf("htlc attempt failure source index: %v\n", htlcAttempt.Failure.FailureSourceIndex)
-	// lastHopyPubkeyBytes, err := hex.DecodeString(h.marketMakerPubkey)
-	// if err != nil {
-
-	// 	fmt.Printf("error decoding last hop pubkey: %v\n", err)
-	// 	return
-	// }
+	fmt.Printf("value: %d\n", lookedupInvoice.Value)
 	fmt.Printf("\n\n\n\n\n----------------about to kick off payment------------\n\n\n\n")
 
 	paymentClient, err := rc.SendPaymentV2(
@@ -366,31 +280,8 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 			AllowSelfPayment:  true,
 			OutgoingChanIds:   eligibleChannels,
 			DestCustomRecords: make(map[uint64][]byte),
-			// OutgoingChanId: eligibleChannels[0],
-			// FeeLimitSat:      1000,
-			// LastHopPubkey: lastHopyPubkeyBytes,
-			FeeLimitMsat: 200000,
-			MaxParts:     16,
-			// RouteHints: []*lnrpc.RouteHint{
-			// 	{
-			// 		HopHints: []*lnrpc.HopHint{
-			// 			{
-			// 				NodeId:                    h.marketMakerPubkey,
-			// 				ChanId:                    eligibleChannels[0],
-			// 				FeeBaseMsat:               0,
-			// 				FeeProportionalMillionths: 0,
-			// 				CltvExpiryDelta:           144,
-			// 			},
-			// 			{
-			// 				NodeId:                    node1Info.IdentityPubkey,
-			// 				ChanId:                    scidToUse,
-			// 				FeeBaseMsat:               0,
-			// 				FeeProportionalMillionths: 0,
-			// 				CltvExpiryDelta:           144,
-			// 			},
-			// 		},
-			// 	},
-			// },
+			FeeLimitMsat:      200000,
+			MaxParts:          16,
 		},
 	)
 	if err != nil {
@@ -518,31 +409,18 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 }
 
 // feeRate should be expressed as percent e.g. to represent 0.2%, use 0.002 for feeRate
-func SatsRateToAsset(rate rfqmath.BigIntFixedPoint, satsToSwap, feeRate float64) (assetSwapped int, joltzFee int) {
-	// joltz takes a swap fee
-	// this mean user pays all the fees, none collected from market maker
-	joltzFeeRate := feeRate
-	joltzFeeSats := satsToSwap * joltzFeeRate
-	satsToSwap = satsToSwap - joltzFeeSats
-
+func SatsRateToAsset(rate rfqmath.BigIntFixedPoint, assetUnitsToGet, feeRate float64) (assetSwapped int) {
+	fmt.Printf("SatsRateToAsset assetUnitsToGet: %f\n", assetUnitsToGet)
 	unitsPerBtc := rate.Coefficient.ToFloat()
+	fmt.Printf("unitsPerBtc: %f\n", unitsPerBtc)
 	unitsPerSat := unitsPerBtc / 100_000_000
-	unitsSwappedFor := satsToSwap * unitsPerSat
-	// due to floating point math imprecision, lets do some rounding
-	// take first 4 decimal places, if they are >= 9998 then round up
-	fraction := unitsSwappedFor - math.Floor(unitsSwappedFor)
-	firstFourDecimals := math.Floor(fraction * 10000)
-	if firstFourDecimals >= 9998 {
-		unitsSwappedFor = math.Ceil(unitsSwappedFor) // round up
-	} else {
-		// a fraction of a sat not due to float math imprecision, joltz will collect
-		unitsSwappedFor = math.Trunc(unitsSwappedFor)
-	}
-
+	fmt.Printf("unitsPerSat: %f\n", unitsPerSat)
+	unitsSwappedFor := assetUnitsToGet * unitsPerSat
+	fmt.Printf("unitsSwappedFor: %f\n", unitsSwappedFor)
 	// any fraction of a sat remainder joltz will collect
 	roundedSats := int(math.Floor(unitsSwappedFor))
 
-	return roundedSats, int(joltzFeeSats)
+	return roundedSats
 }
 
 func EliglbleChannelsToReceiveAssets(ctx context.Context, lc lnrpc.LightningClient, assetId string, peerPk string) ([]uint64, error) {

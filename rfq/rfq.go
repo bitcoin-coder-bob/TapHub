@@ -73,7 +73,7 @@ func NewOracle() (*MarketDataConfig, error) {
 		DesiredAssetIds:      StringSlice{}, // need to pass an asset id that the rfq will recognize
 		Ticker:               "USDT",
 		BtcAssetId:           "0000000000000000000000000000000000000000000000000000000000000000",
-		DecimalDisplay:       2,
+		DecimalDisplay:       0,
 		MaxAssetTradeAmount:  10_000_000, // $100,000 USDT
 		ExchangeSpreadBips:   0,
 		JoltzFeeBips:         0,
