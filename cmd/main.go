@@ -39,7 +39,7 @@ var network string
 func setFlags() {
 	flag.StringVar(&Port, "port", "8081", "")
 	flag.StringVar(&OracleRpcUri, "oracle_rpc_uri", "", "")
-	flag.StringVar(&rpcServer, "rpcserver", "localhost:8443", "rpc server of node")
+	flag.StringVar(&rpcServer, "rpcserver", "127.0.0.1:10009", "rpc server of node")
 	flag.StringVar(&tapTlsCertPath, "tap-tlscertPath", "/home/bob/.lit/tls.cert", "path to tap tls cert")
 	flag.StringVar(&tapMacaroonPath, "tap-macaroonPath", "/home/bob/.tapd/data/testnet4/admin.macaroon", "path to lit macaroon")
 	flag.StringVar(&lndtTlsCertPath, "lnd-tlscertPath", "/home/bob/.lnd/tls.cert", "path to lnd tls cert")
