@@ -94,11 +94,12 @@ class AuthService {
     }
   }
 
-  async authenticateWithSignature(message: string, signature: string): Promise<User> {
+  async authenticateWithSignature(message: string, signature: string, userType: 'user' | 'node' = 'user'): Promise<User> {
     try {
       this.setConnectionState('connecting');
       
       // Call the verification API
+      console.log('Sending verification request:', { message, signature });
       const response = await fetch('/api/verifyMessage', {
         method: 'POST',
         headers: {
@@ -119,16 +120,33 @@ class AuthService {
       }
 
       const user: User = {
-        type: 'user',
+        type: userType,
         pubkey: result.pubkey,
         alias: result.alias,
-        isNodeRunner: false
+        isNodeRunner: userType === 'node'
       };
 
       this.currentUser = user;
       this.saveUserToStorage(user);
       this.setConnectionState('connected');
       this.notifyUserStateListeners(this.currentUser);
+
+      // If this is a node runner, save to MongoDB
+      if (userType === 'node') {
+        try {
+          await fetch('/api/verfiedNodes/saveVerifiedNodes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(user),
+          });
+          console.log('Node runner saved to MongoDB');
+        } catch (error) {
+          console.error('Failed to save node runner to MongoDB:', error);
+          // Don't throw error here as authentication was successful
+        }
+      }
       
       return user;
     } catch (error) {
@@ -175,6 +193,14 @@ class AuthService {
 
       this.currentUser = nodeUser;
       this.saveUserToStorage(nodeUser);
+
+      fetch('/api/verfiedNodes/saveVerifiedNodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(nodeUser),
+      });   
       
       return nodeUser;
     } catch (error) {
