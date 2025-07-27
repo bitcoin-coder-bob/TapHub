@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, History, RefreshCw } from "lucide-react";
 
 import { User as AuthUser, auth, ConnectionState } from "../services/auth";
+import { truncateUsername } from "../utils/stringUtils";
 // import Image from "next/image";
 
 interface NavigationProps {
@@ -208,7 +209,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                   >
                     <User className="w-4 h-4 text-primary" />
                     <span className="text-sm">
-                      {user.alias || (user.type === 'node' ? 'Node Runner' : 'Lightning User')}
+                      {truncateUsername(user.alias || (user.type === 'node' ? 'Node Runner' : 'Lightning User'))}
                     </span>
                   </button>
                   
@@ -378,7 +379,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-primary" />
                         <span>
-                          {user.alias || (user.type === 'node' ? 'Node Runner' : 'Lightning User')}
+                          {truncateUsername(user.alias || (user.type === 'node' ? 'Node Runner' : 'Lightning User'))}
                         </span>
                       </div>
                     </button>

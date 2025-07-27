@@ -1,5 +1,6 @@
 import { Zap, Shield, Network, Copy, Plus, CheckCircle } from "lucide-react";
 import { auth, User as AuthUser } from "../services/auth";
+import { truncateUsername } from "../utils/stringUtils";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
@@ -140,7 +141,7 @@ export function NodeProfilePage({
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-2xl">
-                    ⚡ {user.alias || user.email || 'Lightning User'}
+                    ⚡ {truncateUsername(user.alias || user.email || 'Lightning User')}
                   </h1>
                   <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-xs flex items-center gap-1">
                     <Shield className="w-3 h-3" />
@@ -237,7 +238,7 @@ export function NodeProfilePage({
               <p className="text-sm text-muted-foreground">
                 Wallet
               </p>
-              <p className="text-xl">{walletInfo?.alias || 'Connected'}</p>
+              <p className="text-xl">{truncateUsername(walletInfo?.alias || 'Connected')}</p>
             </div>
           </div>
         </div>

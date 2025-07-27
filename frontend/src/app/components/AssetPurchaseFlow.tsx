@@ -10,6 +10,7 @@ import {
   UserX,
 } from "lucide-react";
 import { auth } from "../services/auth";
+import { truncateUsername } from "../utils/stringUtils";
 
 interface AssetPurchaseFlowProps {
   assetId?: string;
@@ -211,7 +212,7 @@ export function AssetPurchaseFlow({
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       <span className="text-green-700 dark:text-green-300">
-                        Signed in as {currentUser?.alias || 'Lightning User'}
+                        Signed in as {truncateUsername(currentUser?.alias || 'Lightning User')}
                       </span>
                     </div>
                   </div>
