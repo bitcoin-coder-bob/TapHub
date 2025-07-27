@@ -240,7 +240,7 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
             {!searchQuery && (
               <button
                 className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
-                onClick={() => onNavigate("register-node")}
+                onClick={() => onNavigate("register")}
               >
                 Register Your Node
               </button>
