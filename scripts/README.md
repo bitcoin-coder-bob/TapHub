@@ -127,11 +127,18 @@ export CAROL_TAP_RPC_SERVER="127.0.0.1:12031"
 
 ## Requirements
 
-- Lightning Network Daemon (lnd)
-- Taproot Assets Daemon (tapd)  
-- Bitcoin Core (regtest mode)
-- jq (JSON processor)
-- Polar Lightning Network setup
+### Prerequisites
+- [Polar Lightning Network](https://lightningpolar.com/) installed and running
+- 3 LND nodes (Alice, Bob, Carol) configured in Polar
+- 3 Taproot Assets daemons (tapd) running alongside each LND node
+- Bitcoin Core in regtest mode (configured automatically by Polar)
+- jq (JSON processor) - `brew install jq` on macOS
+
+### Polar Network Setup
+1. Create new network in Polar with 3 LND nodes
+2. Enable Taproot Assets (tapd) for all nodes in Polar settings
+3. Start the network and ensure all nodes are running
+4. Verify tapd is running: each node should have both LND and TAP ports active
 
 ## Flow Architecture
 
