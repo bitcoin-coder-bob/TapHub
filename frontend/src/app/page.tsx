@@ -9,6 +9,7 @@ import { NodeProfilePage } from "./components/NodeProfilePage";
 import { RegisterNodePage } from "./components/RegisterNodePage";
 import { AssetListingDashboard } from "./components/AssetListingDashboard";
 import { AssetPurchaseFlow } from "./components/AssetPurchaseFlow";
+import { AssetDetailPage } from "./components/AssetDetailPage";
 import { TransactionHistory } from "./components/TransactionHistory";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { albyAuth, AlbyUser } from "./services/albyAuth";
@@ -65,10 +66,17 @@ export default function App() {
         }
         return <AssetListingDashboard onNavigate={navigate} />;
       case "purchase":
-      case "asset-detail":
         return (
           <AssetPurchaseFlow
             assetId={pageParams.assetId as string}
+            onNavigate={navigate}
+          />
+        );
+      case "asset-detail":
+        return (
+          <AssetDetailPage
+            assetId={pageParams.assetId as string}
+            nodePubkey={pageParams.nodePubkey as string}
             onNavigate={navigate}
           />
         );

@@ -1,72 +1,132 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Zap, Star } from "lucide-react";
 
 interface AssetDiscoveryPageProps {
   onNavigate: (page: string, params?: unknown) => void;
 }
 
+interface Asset {
+  id: string;
+  name: string;
+  symbol: string;
+  totalSupply: string;
+  available: string;
+  status: string;
+}
+
+interface NodeAsset {
+  nodePubkey: string;
+  assets: Asset[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AssetWithNode extends Asset {
+  nodePubkey: string;
+  nodeName?: string;
+  nodeRating?: number;
+  nodeTrades?: number;
+}
+
 export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [assets, setAssets] = useState<AssetWithNode[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data for assets
-  const assets = [
-    {
-      id: "1",
-      name: "Stablecoin USD",
-      symbol: "SUSD",
-      type: "Stablecoin",
-      price: "1.00",
-      priceUnit: "USD",
-      node: "⚡ Alpha Node",
-      rating: 4.8,
-      trades: 156,
-      available: "1,000,000",
-    },
-    {
-      id: "2",
-      name: "Bitcoin Art Token",
-      symbol: "BART",
-      type: "NFT",
-      price: "0.001",
-      priceUnit: "BTC",
-      node: "🎨 Artist Pro",
-      rating: 4.9,
-      trades: 89,
-      available: "50",
-    },
-    {
-      id: "3",
-      name: "Gaming Credits",
-      symbol: "GAME",
-      type: "Utility",
-      price: "0.00025",
-      priceUnit: "BTC",
-      node: "🎮 Game Central",
-      rating: 4.6,
-      trades: 234,
-      available: "500,000",
-    },
-    {
-      id: "4",
-      name: "Energy Token",
-      symbol: "ENRG",
-      type: "Commodity",
-      price: "0.0005",
-      priceUnit: "BTC",
-      node: "⚡ Energy Grid",
-      rating: 4.7,
-      trades: 127,
-      available: "75,000",
-    },
-  ];
+  // Fetch all node assets from database
+  useEffect(() => {
+    const fetchAllNodeAssets = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // First, get all verified nodes
+        const nodesResponse = await fetch('/api/verfiedNodes/getVerfiedNodes');
+        if (!nodesResponse.ok) {
+          throw new Error('Failed to fetch nodes');
+        }
+        const nodePubkeys = await nodesResponse.json();
+
+        // Then, fetch assets for each node
+        const allAssets: AssetWithNode[] = [];
+        
+        for (const nodePubkey of nodePubkeys) {
+          try {
+            const assetsResponse = await fetch(`/api/verfiedNodes/getNodeAssets?nodePubkey=${nodePubkey}`);
+            if (assetsResponse.ok) {
+              const nodeAssets: NodeAsset = await assetsResponse.json();
+              
+              // Add node information to each asset
+              const assetsWithNode = nodeAssets.assets.map(asset => ({
+                ...asset,
+                nodePubkey: nodeAssets.nodePubkey,
+                nodeName: `Node ${nodeAssets.nodePubkey.slice(0, 8)}...`,
+                nodeRating: 4.5, // Default rating - could be fetched from node profile
+                nodeTrades: Math.floor(Math.random() * 500) + 50 // Mock trades count
+              }));
+              
+              allAssets.push(...assetsWithNode);
+            }
+          } catch (error) {
+            console.error(`Failed to fetch assets for node ${nodePubkey}:`, error);
+            // Continue with other nodes even if one fails
+          }
+        }
+
+        setAssets(allAssets);
+      } catch (error) {
+        console.error('Error fetching assets:', error);
+        setError('Failed to load assets');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllNodeAssets();
+  }, []);
 
   const filteredAssets = assets.filter((asset) => {
     return (
       asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.node.toLowerCase().includes(searchQuery.toLowerCase())
+      (asset.nodeName && asset.nodeName.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-muted/50 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+          <h3 className="mb-2">Loading assets...</h3>
+          <p className="text-muted-foreground">Fetching available Taproot Assets</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-red-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-500 text-2xl">!</span>
+          </div>
+          <h3 className="mb-2">Error loading assets</h3>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <button
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -98,9 +158,12 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
       <div className="space-y-4">
         {filteredAssets.map((asset) => (
           <div
-            key={asset.id}
+            key={`${asset.nodePubkey}-${asset.id}`}
             className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-colors cursor-pointer"
-            onClick={() => onNavigate("asset-detail", { assetId: asset.id })}
+            onClick={() => onNavigate("asset-detail", { 
+              assetId: asset.id,
+              nodePubkey: asset.nodePubkey 
+            })}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -112,32 +175,32 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
                 <div>
                   <h3 className="mb-1">{asset.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {asset.symbol} • {asset.type}
+                    {asset.symbol} • {asset.status}
                   </p>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-lg text-primary mb-1">
-                  {asset.price} {asset.priceUnit}
+                  Available: {parseInt(asset.available).toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {parseInt(asset.available).toLocaleString()} available
+                  Total Supply: {parseInt(asset.totalSupply).toLocaleString()}
                 </div>
               </div>
             </div>
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                {asset.node}
+                {asset.nodeName}
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                  {asset.rating}
+                  {asset.nodeRating}
                 </div>
                 <div className="flex items-center gap-1">
                   <Zap className="w-3 h-3" />
-                  {asset.trades} trades
+                  {asset.nodeTrades} trades
                 </div>
               </div>
             </div>
@@ -146,21 +209,23 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
       </div>
 
       {/* Empty State */}
-      {filteredAssets.length === 0 && (
+      {filteredAssets.length === 0 && !isLoading && (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-muted/50 rounded-lg flex items-center justify-center mx-auto mb-4">
             <Search className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="mb-2">No assets found</h3>
           <p className="text-muted-foreground mb-6">
-            Try searching for something else
+            {searchQuery ? 'Try searching for something else' : 'No assets are currently available in the database'}
           </p>
-          <button
-            className="px-4 py-2 border border-border text-foreground hover:bg-accent rounded-lg transition-colors"
-            onClick={() => setSearchQuery("")}
-          >
-            Clear Search
-          </button>
+          {searchQuery && (
+            <button
+              className="px-4 py-2 border border-border text-foreground hover:bg-accent rounded-lg transition-colors"
+              onClick={() => setSearchQuery("")}
+            >
+              Clear Search
+            </button>
+          )}
         </div>
       )}
     </div>

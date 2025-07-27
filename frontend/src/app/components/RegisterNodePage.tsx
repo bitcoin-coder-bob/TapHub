@@ -58,6 +58,16 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
         description: formData.description,
         credentials: formData.nwcCredentials
       });
+
+      // Save the node to the database
+      const response = await fetch('/api/verfiedNodes/saveVerifiedNodes', {
+        method: 'POST',
+        body: JSON.stringify(nodeUser)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save node to database');
+      }
       
       onLogin('node', nodeUser);
       onNavigate('dashboard');
