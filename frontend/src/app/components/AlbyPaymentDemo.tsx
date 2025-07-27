@@ -3,6 +3,7 @@ import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw } from "lu
 import { albyAuth, type InvoiceInfo } from "../services/albyAuth";
 import { USD } from "@getalby/sdk";
 import { ErrorDisplay, useErrorRecovery } from "./ErrorBoundary";
+import { PaymentConfirmation } from "./PaymentConfirmation";
 
 interface AlbyPaymentDemoProps {
   assetId: string;
@@ -21,6 +22,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
   const [invoiceInfo, setInvoiceInfo] = useState<InvoiceInfo | null>(null);
   const [showInvoiceInput, setShowInvoiceInput] = useState(false);
   const [lastFailedOperation, setLastFailedOperation] = useState<(() => Promise<void>) | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   const { 
     error, 
@@ -59,19 +61,40 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
   };
 
   const handlePayment = async () => {
+    // Show confirmation modal instead of directly processing payment
     if (showInvoiceInput) {
-      return handleInvoicePayment();
+      // Validate invoice first
+      if (!invoiceInfo?.valid) {
+        handleError(new Error('Please enter a valid Lightning invoice'));
+        return;
+      }
+      if (invoiceInfo.expired) {
+        handleError(new Error('This invoice has expired'));
+        return;
+      }
+    }
+    
+    // Check balance before showing confirmation
+    const totalCost = showInvoiceInput 
+      ? (invoiceInfo?.amount || 0) * 1000
+      : (price + 1) * 1000; // Convert sats to msat and add network fee
+    
+    if (balance !== null && balance < totalCost) {
+      const balanceInSats = Math.floor(balance / 1000);
+      const requiredSats = Math.floor(totalCost / 1000);
+      handleError(new Error(`Insufficient balance. You have ${balanceInSats.toLocaleString()} sats but need ${requiredSats.toLocaleString()} sats.`));
+      return;
+    }
+
+    setShowConfirmation(true);
+  };
+
+  const executePayment = async () => {
+    if (showInvoiceInput) {
+      return executeInvoicePayment();
     }
     
     const paymentOperation = async () => {
-      // Check balance first
-      const totalCost = (price + 1) * 1000; // Convert sats to msat and add network fee
-      
-      if (balance !== null && balance < totalCost) {
-        const balanceInSats = Math.floor(balance / 1000);
-        throw new Error(`Insufficient balance. You have ${balanceInSats.toLocaleString()} sats but need ${(price + 1).toLocaleString()} sats.`);
-      }
-
       const lnClient = albyAuth.getLNClient();
       if (!lnClient) {
         throw new Error('Not connected to Alby wallet');
@@ -88,6 +111,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       setTimeout(() => {
         setSuccess(true);
         setIsLoading(false);
+        setShowConfirmation(false);
         onSuccess?.();
       }, 2000);
     };
@@ -101,37 +125,20 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
     } catch (err) {
       handleError(err as Error);
       setIsLoading(false);
+      setShowConfirmation(false);
     }
   };
 
-  const handleInvoicePayment = async () => {
-    if (!invoiceInfo?.valid) {
-      handleError(new Error('Please enter a valid Lightning invoice'));
-      return;
-    }
-
-    if (invoiceInfo.expired) {
-      handleError(new Error('This invoice has expired'));
-      return;
-    }
-
+  const executeInvoicePayment = async () => {
     const invoicePaymentOperation = async () => {
-      // Check balance if we know the invoice amount
-      if (invoiceInfo.amount && balance !== null) {
-        const requiredBalance = invoiceInfo.amount * 1000; // Convert to msat
-        if (balance < requiredBalance) {
-          const balanceInSats = Math.floor(balance / 1000);
-          throw new Error(`Insufficient balance. You have ${balanceInSats.toLocaleString()} sats but need ${invoiceInfo.amount.toLocaleString()} sats.`);
-        }
-      }
-
-      const result = await albyAuth.makePayment(invoice.trim());
+      await albyAuth.makePayment(invoice.trim());
       
       // Update balance after successful payment
       await checkBalance();
       
       setSuccess(true);
       setIsLoading(false);
+      setShowConfirmation(false);
       onSuccess?.();
     };
 
@@ -144,6 +151,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
     } catch (err) {
       handleError(err as Error);
       setIsLoading(false);
+      setShowConfirmation(false);
     }
   };
 
@@ -363,6 +371,17 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
           Your Taproot Asset will be transferred to your wallet immediately.
         </p>
       </div>
+
+      {/* Payment Confirmation Modal */}
+      <PaymentConfirmation
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={executePayment}
+        assetName={assetName}
+        price={price}
+        invoiceInfo={invoiceInfo}
+        showInvoiceInput={showInvoiceInput}
+      />
     </div>
   );
 } 
