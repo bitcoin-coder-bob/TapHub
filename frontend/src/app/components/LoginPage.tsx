@@ -80,43 +80,63 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
     setError(null);
     
     try {
-      if (authMethod === 'nwc') {
-        if (!nwcCredentials.trim()) {
-          throw new Error('Please enter your Nostr Wallet Connect credentials');
-        }
+      if (authType === 'user') {
+        // User authentication
+        if (authMethod === 'nwc') {
+          if (!nwcCredentials.trim()) {
+            throw new Error('Please enter your Nostr Wallet Connect credentials');
+          }
 
-        // Set the selected network before connecting
-        auth.setNetwork(selectedNetwork.name);
-        
-        const user = await auth.connectWithCredentials(nwcCredentials);
-        onLogin(user.type, user);
-        
-        // Navigate based on user type
-        if (user.type === 'node') {
-          onNavigate('dashboard');
+          // Set the selected network before connecting
+          auth.setNetwork(selectedNetwork.name);
+          
+          const user = await auth.connectWithCredentials(nwcCredentials);
+          onLogin(user.type, user);
+          onNavigate('discover');
         } else {
+          // Signature-based authentication for users
+          if (!challenge.trim()) {
+            throw new Error('Please generate a challenge first');
+          }
+          if (!signature.trim()) {
+            throw new Error('Please paste your signature');
+          }
+
+          // Set the selected network before connecting
+          auth.setNetwork(selectedNetwork.name);
+          
+          const user = await auth.authenticateWithSignature(challenge, signature, 'user');
+          onLogin(user.type, user);
           onNavigate('discover');
         }
       } else {
-        // Signature-based authentication
-        if (!challenge.trim()) {
-          throw new Error('Please generate a challenge first');
-        }
-        if (!signature.trim()) {
-          throw new Error('Please paste your signature');
-        }
+        // Node runner authentication
+        if (authMethod === 'nwc') {
+          if (!nwcCredentials.trim()) {
+            throw new Error('Please enter your Nostr Wallet Connect credentials');
+          }
 
-        // Set the selected network before connecting
-        auth.setNetwork(selectedNetwork.name);
-        
-        const user = await auth.authenticateWithSignature(challenge, signature);
-        onLogin(user.type, user);
-        
-        // Navigate based on user type
-        if (user.type === 'node') {
+          // Set the selected network before connecting
+          auth.setNetwork(selectedNetwork.name);
+          
+          const user = await auth.connectWithCredentials(nwcCredentials);
+          onLogin(user.type, user);
           onNavigate('dashboard');
         } else {
-          onNavigate('discover');
+          // Signature-based authentication for node runners
+          if (!challenge.trim()) {
+            throw new Error('Please generate a challenge first');
+          }
+          if (!signature.trim()) {
+            throw new Error('Please paste your signature');
+          }
+
+          // Set the selected network before connecting
+          auth.setNetwork(selectedNetwork.name);
+          
+          const user = await auth.authenticateWithSignature(challenge, signature, 'node');
+          onLogin(user.type, user);
+          onNavigate('dashboard');
         }
       }
     } catch (err) {
@@ -171,33 +191,31 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
           </button>
         </div>
 
-        {/* Authentication Method Toggle (only for users) */}
-        {authType === 'user' && (
-          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mb-6">
-            <button
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                authMethod === 'signature'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setAuthMethod('signature')}
-            >
-              <Zap className="w-4 h-4" />
-              Lightning CLI
-            </button>
-            <button
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                authMethod === 'nwc'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setAuthMethod('nwc')}
-            >
-              <Wallet className="w-4 h-4" />
-              NWC Wallet
-            </button>
-          </div>
-        )}
+        {/* Authentication Method Toggle */}
+        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mb-6">
+          <button
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-colors ${
+              authMethod === 'signature'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setAuthMethod('signature')}
+          >
+            <Zap className="w-4 h-4" />
+            Lightning CLI
+          </button>
+          <button
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-colors ${
+              authMethod === 'nwc'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setAuthMethod('nwc')}
+          >
+            <Wallet className="w-4 h-4" />
+            NWC Wallet
+          </button>
+        </div>
 
         {/* Error Display */}
         {error && (
@@ -245,8 +263,8 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         </div>
 
         {/* Authentication Form */}
-        <form onSubmit={authType === 'user' ? handleWalletLogin : handleNodeRegistration} className="space-y-4">
-          {authType === 'user' && authMethod === 'signature' ? (
+        <form onSubmit={handleWalletLogin} className="space-y-4">
+          {authMethod === 'signature' ? (
             // Signature-based authentication form
             <>
               {/* Challenge Generation */}
@@ -392,18 +410,18 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
           <button
             type="submit"
             disabled={isLoading || 
-              (authType === 'user' && authMethod === 'nwc' && nwcCredentials.trim() !== '' && connectionTest !== 'success') ||
-              (authType === 'user' && authMethod === 'signature' && (!challenge || !signature.trim()))
+              (authMethod === 'nwc' && nwcCredentials.trim() !== '' && connectionTest !== 'success') ||
+              (authMethod === 'signature' && (!challenge || !signature.trim()))
             }
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
-              <>
-                {authType === 'user' ? 'Connect Wallet' : 'Register as Node'}
-                <ArrowRight className="w-4 h-4" />
-              </>
+                          <>
+              {authType === 'user' ? 'Connect Wallet' : 'Connect Node'}
+              <ArrowRight className="w-4 h-4" />
+            </>
             )}
           </button>
         </form>
@@ -415,7 +433,9 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
               ? authMethod === 'signature' 
                 ? 'Sign a challenge message with your Lightning CLI to authenticate and browse Taproot Assets from verified Lightning nodes.'
                 : 'Connect your Lightning wallet to browse and purchase Taproot Assets from verified Lightning nodes.'
-              : 'Register your Lightning node to list assets for sale and access the seller dashboard. You&apos;ll need NWC credentials from your node.'
+              : authMethod === 'signature'
+                ? 'Sign a challenge message with your Lightning node CLI to authenticate and access the seller dashboard.'
+                : 'Connect your Lightning node to list assets for sale and access the seller dashboard. You&apos;ll need NWC credentials from your node.'
             }
           </p>
         </div>
@@ -427,7 +447,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
             onClick={() => setAuthType(authType === 'user' ? 'node' : 'user')}
           >
             {authType === 'user' 
-              ? 'Are you a Lightning node operator? Register here'
+              ? 'Are you a Lightning node operator? Connect your node here'
               : 'Regular user? Connect your wallet instead'
             }
           </button>
@@ -435,7 +455,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
 
         {/* Help Links */}
         <div className="mt-4 text-center space-y-2">
-          {authType === 'user' && authMethod === 'signature' ? (
+          {authMethod === 'signature' ? (
             <>
               <p className="text-sm text-muted-foreground">
                 Don&apos;t have Lightning CLI access?{' '}
