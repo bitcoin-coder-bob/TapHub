@@ -1,9 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/lightninglabs/taproot-assets/taprpc"
+	"github.com/lightninglabs/taproot-assets/taprpc/universerpc"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
@@ -147,4 +151,88 @@ func (h *Handler) VerifyMessage(w http.ResponseWriter, r *http.Request) {
 		Pubkey: verifyMessageResp.Pubkey,
 		Error:  "",
 	})
+}
+
+func (h *Handler) VerifyProof(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\n\n inside VerifyProof\n\n")
+	var req struct {
+		AssetName    string `json:"assetName"`
+		RawProofFile []byte `json:"rawProofFile"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		json.NewEncoder(w).Encode(struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   fmt.Sprintf("error decoding detect channel request: %s", err.Error()),
+		})
+		return
+	}
+
+	assetsStatQuery := universerpc.AssetStatsQuery{
+		AssetNameFilter: req.AssetName,
+		AssetTypeFilter: universerpc.AssetTypeFilter_FILTER_ASSET_NORMAL,
+	}
+
+	genesisPoint := ""
+	assetsStatsResp, err := h.universeClient.QueryAssetStats(context.Background(), &assetsStatQuery)
+	for _, snapshot := range assetsStatsResp.AssetStats {
+		if snapshot.Asset.AssetName == req.AssetName {
+			fmt.Printf("found asset %s with genesis point %s\n", req.AssetName, snapshot.Asset.GenesisPoint)
+			genesisPoint = snapshot.Asset.GenesisPoint
+			break
+		}
+	}
+
+	if genesisPoint == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(struct {
+			Error string `json:"error"`
+		}{
+			Error: fmt.Sprintf("asset %s not found", req.AssetName),
+		})
+		return
+	}
+
+	ctx := r.Context()
+	proofFail := taprpc.ProofFile{
+		RawProofFile: req.RawProofFile,
+		GenesisPoint: genesisPoint,
+	}
+	verifyProofResp, err := h.tapClient.VerifyProof(ctx, &proofFail)
+	if err != nil {
+		// message is not valid - error case 2
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(struct {
+			Error string `json:"error"`
+		}{
+			Error: fmt.Sprintf("verify proof failed: %s", err.Error()),
+		})
+		return
+	}
+	if !verifyProofResp.Valid {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(struct {
+			Error string `json:"error"`
+		}{
+			Error: "proof is not valid",
+		})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(struct {
+		Success bool   `json:"success"`
+		Error   string `json:"error"`
+	}{
+		Success: true,
+		Error:   "",
+	})
+	fmt.Printf("proof is valid for asset %s\n", req.AssetName)
 }
