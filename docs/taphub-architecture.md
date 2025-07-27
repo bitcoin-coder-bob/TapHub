@@ -27,25 +27,25 @@ graph TB
     end
 
     %% User interactions
-    ALICE -.->|1. Browse<br/>Marketplace| WEB
-    WEB -.->|2. Search<br/>Assets| API
-    API -.->|3. Return<br/>Listings| WEB
+    ALICE -.->|1. Browse Marketplace| WEB
+    WEB -.->|2. Search Assets| API
+    API -.->|3. Return Listings| WEB
     
     %% Channel opening flow
-    ALICE -->|4. Open Sats<br/>Channel| BOB
-    ALICE -.->|5. Request<br/>Asset Channel| API
+    ALICE -->|4. Open Sats Channel| BOB
+    ALICE -.->|5. Request Asset Channel| API
     
     %% Monitoring
-    BTC -->|6. Detect<br/>Channel Open| MONITOR
-    MONITOR -->|7. Notify<br/>Bob| API
+    BTC -->|6. Detect Channel Open| MONITOR
+    MONITOR -->|7. Notify Bob| API
     
     %% Asset channel
-    BOB -->|8. Open Asset<br/>Channel| ALICE
-    BOB -.->|9. Confirm<br/>Channel Open| API
+    BOB -->|8. Open Asset Channel| ALICE
+    BOB -.->|9. Confirm Channel Open| API
     
     %% Trading
-    ALICE <-->|10. Lightning<br/>Payments| BOB
-    ALICE <-->|11. Asset<br/>Transfers| BOB
+    ALICE <-->|10. Lightning Payments| BOB
+    ALICE <-->|11. Asset Transfers| BOB
     
     %% Database connections
     API <--> DB
