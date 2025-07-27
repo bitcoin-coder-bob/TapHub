@@ -26,40 +26,24 @@ graph TB
         TAP[Taproot Assets - Asset Transfers]
     end
 
-    %% User interactions
     ALICE -.->|1. Browse Marketplace| WEB
     WEB -.->|2. Search Assets| API
     API -.->|3. Return Listings| WEB
     
-    %% Channel opening flow
     ALICE -->|4. Open Sats Channel| BOB
     ALICE -.->|5. Request Asset Channel| API
     
-    %% Monitoring
     BTC -->|6. Detect Channel Open| MONITOR
     MONITOR -->|7. Notify Bob| API
     
-    %% Asset channel
     BOB -->|8. Open Asset Channel| ALICE
     BOB -.->|9. Confirm Channel Open| API
     
-    %% Trading
     ALICE <-->|10. Lightning Payments| BOB
     ALICE <-->|11. Asset Transfers| BOB
     
-    %% Database connections
     API <--> DB
     MONITOR --> DB
-    
-    style WEB fill:#e1f5fe
-    style API fill:#f3e5f5
-    style MONITOR fill:#fff3e0
-    style DB fill:#e8f5e9
-    style ALICE fill:#ffebee
-    style BOB fill:#ffebee
-    style NODE_C fill:#ffebee
-    style BTC fill:#fffde7
-    style TAP fill:#fffde7
 ```
 
 ## Detailed Flow
