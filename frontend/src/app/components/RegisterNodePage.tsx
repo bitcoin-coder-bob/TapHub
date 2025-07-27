@@ -1,22 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Zap, Wallet, Server, ArrowRight, ExternalLink, CheckCircle } from "lucide-react";
-import { albyAuth, AlbyUser } from "../services/albyAuth";
+import { albyAuth, AlbyUser, NetworkConfig } from "../services/albyAuth";
 
 interface RegisterNodePageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
   onLogin: (userType: 'user' | 'node', userData: AlbyUser) => void;
+  params?: Record<string, unknown>;
 }
 
-export function RegisterNodePage({ onNavigate, onLogin }: RegisterNodePageProps) {
-  const [step, setStep] = useState<'setup' | 'register'>('setup');
+export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePageProps) {
+  const [step, setStep] = useState<'setup' | 'register'>(params?.nwcCredentials ? 'register' : 'setup');
   const [formData, setFormData] = useState({
     pubkey: "",
     alias: "",
     description: "",
-    nwcCredentials: ""
+    nwcCredentials: (params?.nwcCredentials as string) || ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (params?.selectedNetwork) {
+      const selectedNetwork = params.selectedNetwork as NetworkConfig;
+      albyAuth.setNetwork(selectedNetwork.name);
+    }
+  }, [params?.selectedNetwork]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +36,22 @@ export function RegisterNodePage({ onNavigate, onLogin }: RegisterNodePageProps)
         throw new Error('Please enter your Nostr Wallet Connect credentials');
       }
 
-      // First connect with Alby
+      if (!formData.alias.trim()) {
+        throw new Error('Please enter a node alias');
+      }
+
+      // First connect with Alby to test credentials and get client
       const user = await albyAuth.connectWithAlby(formData.nwcCredentials);
       
-      // Then register as a node
+      // Sign a verification message to prove node ownership
+      const verificationMessage = `TapHub Node Registration - ${formData.alias} - ${Date.now()}`;
+      const signResult = await albyAuth.signMessage(verificationMessage);
+      
+      if (!signResult.signature) {
+        throw new Error('Failed to sign verification message. Please check your NWC credentials.');
+      }
+
+      // Then register as a node with signature proof
       const nodeUser = await albyAuth.registerAsNode({
         pubkey: formData.pubkey || user.pubkey,
         alias: formData.alias,
@@ -244,7 +264,10 @@ export function RegisterNodePage({ onNavigate, onLogin }: RegisterNodePageProps)
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Verifying & Registering...
+              </>
             ) : (
               <>
                 <Zap className="w-4 h-4" />
@@ -256,8 +279,8 @@ export function RegisterNodePage({ onNavigate, onLogin }: RegisterNodePageProps)
 
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground">
-            Your node will be verified before you can start listing assets. 
-            This helps maintain trust in the TapHub marketplace.
+            During registration, we'll verify your node ownership by having you sign a message with your NWC credentials. 
+            This helps maintain trust and security in the TapHub marketplace.
           </p>
         </div>
 

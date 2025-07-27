@@ -84,20 +84,12 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                 </button>
               </div>
             ) : (
-              <>
-                <button
-                  onClick={() => onNavigate("login")}
-                  className="px-4 py-2 text-primary hover:bg-primary/10 rounded-lg text-sm transition-colors"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => onNavigate("register")}
-                  className="px-4 py-2 border border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg text-sm transition-colors"
-                >
-                  Register Node
-                </button>
-              </>
+              <button
+                onClick={() => onNavigate("login")}
+                className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm transition-colors"
+              >
+                Sign In
+              </button>
             )}
           </div>
 
@@ -169,22 +161,13 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                 ) : (
                   <>
                     <button
-                      className="w-full px-3 py-2 text-primary hover:bg-primary/10 rounded-lg text-sm transition-colors"
+                      className="w-full px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm transition-colors"
                       onClick={() => {
                         onNavigate("login");
                         setIsMobileMenuOpen(false);
                       }}
                     >
                       Sign In
-                    </button>
-                    <button
-                      className="w-full px-3 py-2 border border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg text-sm transition-colors"
-                      onClick={() => {
-                        onNavigate("register");
-                        setIsMobileMenuOpen(false);
-                      }}
-                    >
-                      Register Node
                     </button>
                   </>
                 )}

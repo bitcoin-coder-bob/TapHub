@@ -51,36 +51,10 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
     }
   };
 
-  const handleNodeRegistration = async (e: React.FormEvent) => {
+  const handleNodeRegistration = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      if (!nwcCredentials.trim()) {
-        throw new Error('Please enter your Nostr Wallet Connect credentials');
-      }
-
-      // Set the selected network before connecting
-      albyAuth.setNetwork(selectedNetwork.name);
-      
-      // First connect as a user
-      const user = await albyAuth.connectWithAlby(nwcCredentials);
-      
-      // Then register as a node
-      const nodeUser = await albyAuth.registerAsNode({
-        pubkey: user.pubkey,
-        alias: 'Node Runner',
-        credentials: nwcCredentials
-      });
-      
-      onLogin('node', nodeUser);
-      onNavigate('dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to register as node');
-    } finally {
-      setIsLoading(false);
-    }
+    // Navigate to RegisterNodePage with pre-filled credentials
+    onNavigate('register', { nwcCredentials, selectedNetwork });
   };
 
   return (

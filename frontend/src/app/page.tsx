@@ -53,7 +53,7 @@ export default function App() {
       case "profile":
         return <NodeProfilePage onNavigate={navigate} />;
       case "register":
-        return <RegisterNodePage onNavigate={navigate} onLogin={handleLogin} />;
+        return <RegisterNodePage onNavigate={navigate} onLogin={handleLogin} params={pageParams} />;
       case "dashboard":
         return <AssetListingDashboard onNavigate={navigate} />;
       case "purchase":
