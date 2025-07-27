@@ -27,6 +27,7 @@ class AlbyAuthService {
   private currentUser: AlbyUser | null = null;
   private lnClient: LN | null = null;
   private nwcClient: nwc.NWCClient | null = null;
+  private permissions: string[] = [];
   private currentNetwork: NetworkConfig = {
     name: 'mutinynet',
     displayName: 'Mutinynet',
@@ -59,6 +60,9 @@ class AlbyAuthService {
         throw new Error('Failed to sign test message');
       }
 
+      // Check permissions and get wallet info
+      await this.checkPermissions();
+      
       // Try to get wallet info and create a meaningful username
       const extractedName = this.extractUsernameFromCredentials(credentials);
       let walletAlias = extractedName; // Default to extracted name
@@ -172,16 +176,49 @@ class AlbyAuthService {
     }
   }
 
-  // Check wallet info
-  async getWalletInfo(): Promise<{ balance?: number; alias?: string; pubkey?: string }> {
+  // Check permissions before operations
+  async checkPermissions(): Promise<void> {
     if (!this.nwcClient) {
       throw new Error('NWC client not initialized. Please connect first.');
     }
     
     try {
-      // Try to get basic info - some wallets support getInfo
-      return { alias: 'Connected Wallet' };
-    } catch {
+      const info = await this.nwcClient.getInfo();
+      this.permissions = info.methods || [];
+    } catch (error) {
+      console.error('Failed to check permissions:', error);
+      this.permissions = [];
+    }
+  }
+
+  // Get current permissions
+  getPermissions(): string[] {
+    return this.permissions;
+  }
+
+  // Check if a specific permission is available
+  hasPermission(method: string): boolean {
+    return this.permissions.includes(method);
+  }
+
+  // Check wallet info
+  async getWalletInfo(): Promise<{ balance?: number; alias?: string; pubkey?: string }> {
+    if (!this.nwcClient) {
+      throw new Error('NWC client not initialized. Please connect first.');
+    }
+
+    if (!this.hasPermission('get_info')) {
+      throw new Error('Missing permission: get_info. Please reconnect with proper wallet permissions.');
+    }
+    
+    try {
+      const info = await this.nwcClient.getInfo();
+      return { 
+        alias: info.alias || 'Connected Wallet',
+        pubkey: info.pubkey
+      };
+    } catch (error) {
+      console.error('Failed to get wallet info:', error);
       return { alias: 'Connected Wallet' };
     }
   }
@@ -191,6 +228,11 @@ class AlbyAuthService {
     if (!this.lnClient) {
       throw new Error('Not connected to Alby wallet');
     }
+
+    if (!this.hasPermission('pay_invoice')) {
+      throw new Error('Missing permission: pay_invoice. Please reconnect with payment permissions to make payments.');
+    }
+
     return await this.lnClient.pay(invoice);
   }
 
@@ -207,6 +249,7 @@ class AlbyAuthService {
     this.currentUser = null;
     this.lnClient = null;
     this.nwcClient = null;
+    this.permissions = [];
     if (typeof window !== 'undefined') {
       localStorage.removeItem('taphub_user');
       localStorage.removeItem('taphub_nwc_credentials');
@@ -348,6 +391,8 @@ class AlbyAuthService {
       try {
         this.lnClient = new LN(credentials);
         this.nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: credentials });
+        // Re-check permissions after reinitializing
+        this.checkPermissions().catch(console.error);
       } catch (error) {
         console.error('Failed to reinitialize clients:', error);
       }
