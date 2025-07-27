@@ -72,7 +72,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                 >
                   <User className="w-4 h-4 text-primary" />
                   <span className="text-sm">
-                    {user.type === 'node' ? (user.alias || 'Node Runner') : (user.email || 'User')}
+                    {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
                   </span>
                 </button>
                 <button
@@ -151,7 +151,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-primary" />
                         <span>
-                          {user.type === 'node' ? (user.alias || 'Node Runner') : (user.email || 'User')}
+                          {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
                         </span>
                       </div>
                     </button>

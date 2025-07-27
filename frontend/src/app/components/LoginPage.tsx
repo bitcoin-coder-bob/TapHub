@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Zap, User, Server, ArrowRight, Wallet, AlertCircle } from "lucide-react";
-import { albyAuth, AlbyUser } from "../services/albyAuth";
+import { Zap, User, Server, ArrowRight, Wallet, AlertCircle, Network } from "lucide-react";
+import { albyAuth, AlbyUser, NetworkConfig } from "../services/albyAuth";
 
 interface LoginPageProps {
   onNavigate: (page: string) => void;
@@ -12,6 +12,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nwcCredentials, setNwcCredentials] = useState('');
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(albyAuth.getCurrentNetwork());
   
   // Check for existing credentials on mount
   useEffect(() => {
@@ -31,6 +32,9 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         throw new Error('Please enter your Nostr Wallet Connect credentials');
       }
 
+      // Set the selected network before connecting
+      albyAuth.setNetwork(selectedNetwork.name);
+      
       const user = await albyAuth.connectWithAlby(nwcCredentials);
       onLogin(user.type, user);
       
@@ -57,6 +61,9 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         throw new Error('Please enter your Nostr Wallet Connect credentials');
       }
 
+      // Set the selected network before connecting
+      albyAuth.setNetwork(selectedNetwork.name);
+      
       // First connect as a user
       const user = await albyAuth.connectWithAlby(nwcCredentials);
       
@@ -122,6 +129,51 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
             <span className="text-sm text-destructive">{error}</span>
           </div>
         )}
+
+        {/* Network Selector */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Network className="w-4 h-4 text-primary" />
+            <label className="block text-sm font-medium">Network</label>
+          </div>
+          <div className="space-y-2">
+            {albyAuth.getAvailableNetworks().map((network) => (
+              <label key={network.name} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="network"
+                  value={network.name}
+                  checked={selectedNetwork.name === network.name}
+                  onChange={() => setSelectedNetwork(network)}
+                  className="w-4 h-4 text-primary"
+                />
+                <div>
+                  <div className="text-sm font-medium">{network.displayName}</div>
+                  <div className="text-xs text-muted-foreground">{network.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+          {selectedNetwork.name === 'mutinynet' && (
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                <Zap className="w-4 h-4" />
+                <span className="text-sm font-medium">Mutinynet Selected</span>
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                Perfect for testing! Get test sats from{' '}
+                <a 
+                  href="https://faucet.mutinynet.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="underline hover:no-underline"
+                >
+                  faucet.mutinynet.com
+                </a>
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Alby Connection Form */}
         <form onSubmit={authType === 'user' ? handleAlbyLogin : handleNodeRegistration} className="space-y-4">

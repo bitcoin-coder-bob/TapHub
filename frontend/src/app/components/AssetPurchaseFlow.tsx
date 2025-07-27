@@ -12,7 +12,7 @@ interface AssetPurchaseFlowProps {
 }
 
 export function AssetPurchaseFlow({
-  assetId: _assetId = "1",
+  assetId: _ = "1",
   onNavigate,
 }: AssetPurchaseFlowProps) {
   const [step, setStep] = useState(1);

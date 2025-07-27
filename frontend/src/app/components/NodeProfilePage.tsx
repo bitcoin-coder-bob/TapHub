@@ -1,12 +1,64 @@
-import { Zap, Star, Shield } from "lucide-react";
+import { Zap, Shield, Network } from "lucide-react";
+import { albyAuth, AlbyUser } from "../services/albyAuth";
+import { useEffect, useState } from "react";
 
 interface NodeProfilePageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function NodeProfilePage({
-  onNavigate: _onNavigate,
+  onNavigate: _,
 }: NodeProfilePageProps) {
+  const [user, setUser] = useState<AlbyUser | null>(null);
+  const [walletInfo, setWalletInfo] = useState<{ alias?: string; balance?: number; pubkey?: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const currentUser = albyAuth.getCurrentUser();
+        setUser(currentUser);
+        
+        if (currentUser && albyAuth.isAuthenticated()) {
+          try {
+            const info = await albyAuth.getWalletInfo();
+            setWalletInfo(info);
+          } catch (error) {
+            console.log('Could not fetch wallet info:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-20">
+          <h1 className="text-2xl mb-4">Not Connected</h1>
+          <p className="text-muted-foreground">Please connect your wallet to view your profile.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentNetwork = albyAuth.getCurrentNetwork();
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Node Header */}
@@ -20,22 +72,27 @@ export function NodeProfilePage({
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-2xl">
-                    ⚡ Lightning Trader Pro
+                    ⚡ {user.alias || user.email || 'Lightning User'}
                   </h1>
                   <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-xs flex items-center gap-1">
                     <Shield className="w-3 h-3" />
-                    Verified
+                    Connected
                   </span>
                   <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-bitcoin-yellow fill-current" />
-                    <span>4.8</span>
-                    <span>(892 trades)</span>
+                    <Network className="w-4 h-4 text-primary" />
+                    <span>{currentNetwork.displayName}</span>
                   </div>
                   <span>•</span>
-                  <span>Joined Mar 2023</span>
+                  <span>{user.type === 'node' ? 'Node Runner' : 'User'}</span>
+                  {user.description && (
+                    <>
+                      <span>•</span>
+                      <span>{user.description}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -49,7 +106,7 @@ export function NodeProfilePage({
                   Public Key
                 </p>
                 <p className="font-mono text-sm break-all">
-                  03a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab
+                  {user.pubkey}
                 </p>
               </div>
             </div>
@@ -66,23 +123,25 @@ export function NodeProfilePage({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                Uptime
+                Connection
               </p>
-              <p className="text-xl">99.7%</p>
+              <p className="text-xl">
+                {albyAuth.isAuthenticated() ? 'Connected' : 'Offline'}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-lightning-orange/20 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-lightning-orange" />
+            <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
+              <Network className="w-5 h-5 text-primary" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                Capacity
+                Network
               </p>
-              <p className="text-xl">5.2 BTC</p>
+              <p className="text-xl">{currentNetwork.name}</p>
             </div>
           </div>
         </div>
@@ -90,13 +149,13 @@ export function NodeProfilePage({
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-blue-400" />
+              <Shield className="w-5 h-5 text-blue-400" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                Channels
+                User Type
               </p>
-              <p className="text-xl">47</p>
+              <p className="text-xl">{user.type === 'node' ? 'Node' : 'User'}</p>
             </div>
           </div>
         </div>
@@ -108,9 +167,9 @@ export function NodeProfilePage({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                Last Seen
+                Wallet
               </p>
-              <p className="text-xl">2 min ago</p>
+              <p className="text-xl">{walletInfo?.alias || 'Connected'}</p>
             </div>
           </div>
         </div>
@@ -118,11 +177,27 @@ export function NodeProfilePage({
 
       {/* Assets */}
       <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-xl mb-4">Assets (3)</h2>
+        <h2 className="text-xl mb-4">
+          {user.type === 'node' ? 'Listed Assets' : 'Activity'} (0)
+        </h2>
         <p className="text-muted-foreground">
-          Node assets and trading history will be displayed
-          here.
+          {user.type === 'node' 
+            ? 'Your Taproot Assets available for sale will be displayed here. Connect your Lightning node to start listing assets.'
+            : 'Your purchase history and asset transactions will be displayed here.'
+          }
         </p>
+        
+        {currentNetwork.name === 'mutinynet' && (
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+              <Network className="w-4 h-4" />
+              <span className="text-sm font-medium">Testing on {currentNetwork.displayName}</span>
+            </div>
+            <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+              You&apos;re connected to the test network. Perfect for development and testing your Lightning setup!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

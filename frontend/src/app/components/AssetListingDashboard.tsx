@@ -4,7 +4,7 @@ interface AssetListingDashboardProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
-export function AssetListingDashboard({ onNavigate: _onNavigate }: AssetListingDashboardProps) {
+export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardProps) {
   // Mock user assets
   const userAssets = [
     {
