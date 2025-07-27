@@ -39,10 +39,13 @@ flowchart TB
     BOB -->|8. Open Asset Channel| ALICE
     BOB -.->|9. Confirm Channel Open| API
     
-    ALICE <-->|10. Lightning Payments| BOB
-    ALICE <-->|11. Asset Transfers| BOB
+    ALICE -->|10. Lightning Payments| BOB
+    BOB -->|10. Lightning Payments| ALICE
+    ALICE -->|11. Asset Transfers| BOB
+    BOB -->|11. Asset Transfers| ALICE
     
-    API <--> DB
+    API --> DB
+    DB --> API
     MONITOR --> DB
 ```
 
