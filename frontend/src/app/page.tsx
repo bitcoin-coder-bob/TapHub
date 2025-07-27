@@ -9,6 +9,7 @@ import { NodeProfilePage } from "./components/NodeProfilePage";
 import { RegisterNodePage } from "./components/RegisterNodePage";
 import { AssetListingDashboard } from "./components/AssetListingDashboard";
 import { AssetPurchaseFlow } from "./components/AssetPurchaseFlow";
+import { TransactionHistory } from "./components/TransactionHistory";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { albyAuth, AlbyUser } from "./services/albyAuth";
 
@@ -66,21 +67,8 @@ export default function App() {
           />
         );
       case "orders":
-        return (
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="text-center py-20">
-              <h1 className="text-2xl mb-4">Order History</h1>
-              <p className="text-muted-foreground mb-8">
-                Your Lightning Network transaction history
-              </p>
-              <div className="bg-card border border-border p-8 rounded-lg">
-                <p className="text-muted-foreground">
-                  Coming soon - track all your TapHub transactions
-                </p>
-              </div>
-            </div>
-          </div>
-        );
+      case "transactions":
+        return <TransactionHistory onNavigate={navigate} />;
       case "rate":
         return (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

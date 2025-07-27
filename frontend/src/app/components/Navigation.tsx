@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, Wifi } from "lucide-react";
+import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, Wifi, History } from "lucide-react";
 
 import { AlbyUser, albyAuth, ConnectionState } from "../services/albyAuth";
 // import Image from "next/image";
@@ -15,6 +15,7 @@ interface NavigationProps {
 
 export function Navigation({ currentPage, onNavigate, user, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -33,6 +34,18 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
       setBalanceError(null);
     }
   }, [user]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (isUserDropdownOpen) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isUserDropdownOpen]);
 
   // Refresh balance when connection is restored
   useEffect(() => {
@@ -165,22 +178,55 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                   </div>
                 ) : null}
                 
-                <button
-                  onClick={() => onNavigate("profile")}
-                  className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
-                >
-                  <User className="w-4 h-4 text-primary" />
-                  <span className="text-sm">
-                    {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
-                  </span>
-                </button>
-                <button
-                  onClick={onLogout}
-                  className="px-3 py-2 text-muted-foreground hover:text-foreground rounded-lg text-sm transition-colors flex items-center gap-1"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                    className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
+                  >
+                    <User className="w-4 h-4 text-primary" />
+                    <span className="text-sm">
+                      {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
+                    </span>
+                  </button>
+                  
+                  {isUserDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50">
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            onNavigate("profile");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left"
+                        >
+                          <User className="w-4 h-4" />
+                          Profile
+                        </button>
+                        <button
+                          onClick={() => {
+                            onNavigate("transactions");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left"
+                        >
+                          <History className="w-4 h-4" />
+                          Transaction History
+                        </button>
+                        <div className="border-t border-border my-1"></div>
+                        <button
+                          onClick={() => {
+                            onLogout?.();
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-left"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <button
@@ -299,6 +345,18 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                         <span>
                           {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
                         </span>
+                      </div>
+                    </button>
+                    <button
+                      className="w-full px-3 py-2 text-muted-foreground hover:text-foreground rounded-lg text-sm transition-colors text-left"
+                      onClick={() => {
+                        onNavigate("transactions");
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4" />
+                        <span>Transaction History</span>
                       </div>
                     </button>
                     <button

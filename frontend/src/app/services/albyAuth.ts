@@ -731,6 +731,26 @@ class AlbyAuthService {
     }
   }
 
+  // Get transaction history
+  async getTransactions(): Promise<unknown[]> {
+    if (!this.nwcClient) {
+      throw new Error('NWC client not initialized. Please connect first.');
+    }
+
+    if (!this.hasPermission('list_transactions')) {
+      throw new Error('Missing permission: list_transactions. Please reconnect with transaction history permissions.');
+    }
+
+    try {
+      const response = await this.nwcClient.listTransactions({});
+      // Return last 20 transactions, sorted by creation date (newest first)
+      return response.transactions?.slice(0, 20) || [];
+    } catch (error) {
+      console.error('Failed to get transactions:', error);
+      throw new Error('Failed to retrieve transaction history');
+    }
+  }
+
   // Helper to check if an error is connection-related
   private isConnectionError(error: unknown): boolean {
     const errorMessage = (error as Error)?.message?.toLowerCase() || '';
