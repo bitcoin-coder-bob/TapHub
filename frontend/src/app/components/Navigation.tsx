@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle } from "lucide-react";
+import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, Wifi } from "lucide-react";
 
 import { AlbyUser, albyAuth, ConnectionState } from "../services/albyAuth";
 // import Image from "next/image";
@@ -18,6 +18,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -48,6 +49,21 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
     } catch (error) {
       console.error('Failed to fetch balance:', error);
       setBalanceError('Balance unavailable');
+    }
+  };
+
+  const handleReconnectWallet = async () => {
+    setIsReconnecting(true);
+    try {
+      const credentials = albyAuth.getStoredCredentials();
+      if (credentials) {
+        await albyAuth.connectWithAlby(credentials);
+        await fetchBalance();
+      }
+    } catch (error) {
+      console.error('Reconnection failed:', error);
+    } finally {
+      setIsReconnecting(false);
     }
   };
 
@@ -119,6 +135,20 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                       ? 'Connecting...'
                       : 'Disconnected'}
                   </span>
+                  {connectionState === 'disconnected' && (
+                    <button
+                      onClick={handleReconnectWallet}
+                      disabled={isReconnecting}
+                      className="text-xs px-2 py-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors disabled:opacity-50"
+                      title="Reconnect wallet"
+                    >
+                      {isReconnecting ? (
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Wifi className="w-3 h-3" />
+                      )}
+                    </button>
+                  )}
                 </div>
                 {/* Balance Display */}
                 {balance !== null ? (
@@ -204,23 +234,38 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                   <>
                     {/* Mobile Connection Status */}
                     <div className="w-full px-3 py-2 bg-accent/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Circle
-                          className={`w-2.5 h-2.5 fill-current ${
-                            connectionState === 'connected'
-                              ? 'text-green-500'
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Circle
+                            className={`w-2.5 h-2.5 fill-current ${
+                              connectionState === 'connected'
+                                ? 'text-green-500'
+                                : connectionState === 'connecting'
+                                ? 'text-yellow-500 animate-pulse'
+                                : 'text-red-500'
+                            }`}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {connectionState === 'connected'
+                              ? 'Connected'
                               : connectionState === 'connecting'
-                              ? 'text-yellow-500 animate-pulse'
-                              : 'text-red-500'
-                          }`}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {connectionState === 'connected'
-                            ? 'Connected'
-                            : connectionState === 'connecting'
-                            ? 'Connecting...'
-                            : 'Disconnected'}
-                        </span>
+                              ? 'Connecting...'
+                              : 'Disconnected'}
+                          </span>
+                        </div>
+                        {connectionState === 'disconnected' && (
+                          <button
+                            onClick={handleReconnectWallet}
+                            disabled={isReconnecting}
+                            className="text-xs px-2 py-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors disabled:opacity-50"
+                          >
+                            {isReconnecting ? (
+                              <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Wifi className="w-3 h-3" />
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {/* Mobile Balance Display */}

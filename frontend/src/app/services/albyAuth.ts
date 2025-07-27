@@ -1,5 +1,5 @@
 import { LN, USD, nwc } from "@getalby/sdk";
-import { LightningAddress, Invoice } from "@getalby/lightning-tools";
+import { Invoice } from "@getalby/lightning-tools";
 
 export interface AlbyUser {
   type: 'user' | 'node';
@@ -36,9 +36,9 @@ export interface InvoiceInfo {
 export interface QueuedOperation {
   id: string;
   type: 'payment' | 'balance' | 'info';
-  operation: () => Promise<any>;
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
+  operation: () => Promise<unknown>;
+  resolve: (value: unknown) => void;
+  reject: (error: unknown) => void;
 }
 
 class AlbyAuthService {
@@ -660,13 +660,13 @@ class AlbyAuthService {
 
   // Operation queue management
   private queueOperation<T>(type: QueuedOperation['type'], operation: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const queuedOp: QueuedOperation = {
         id: Date.now().toString(),
         type,
-        operation,
-        resolve,
-        reject
+        operation: operation as () => Promise<unknown>,
+        resolve: resolve as (value: unknown) => void,
+        reject: reject as (error: unknown) => void
       };
       
       this.operationQueue.push(queuedOp);
@@ -709,20 +709,11 @@ class AlbyAuthService {
     }
 
     try {
-      const invoice = new Invoice(invoiceString);
+      const invoice = new Invoice({ pr: invoiceString });
       
-      // Check if invoice format is valid
-      if (!invoice.valid) {
-        return {
-          valid: false,
-          expired: false,
-          errorMessage: 'Invalid invoice format'
-        };
-      }
-
       // Check if invoice is expired
       const now = Math.floor(Date.now() / 1000);
-      const isExpired = invoice.timeExpireDate && invoice.timeExpireDate < now;
+      const isExpired = invoice.expiry && (invoice.timestamp + invoice.expiry) < now;
 
       return {
         valid: true,
@@ -731,7 +722,7 @@ class AlbyAuthService {
         description: invoice.description || undefined,
         errorMessage: isExpired ? 'Invoice has expired' : undefined
       };
-    } catch (error) {
+    } catch {
       return {
         valid: false,
         expired: false,
@@ -741,8 +732,8 @@ class AlbyAuthService {
   }
 
   // Helper to check if an error is connection-related
-  private isConnectionError(error: any): boolean {
-    const errorMessage = error?.message?.toLowerCase() || '';
+  private isConnectionError(error: unknown): boolean {
+    const errorMessage = (error as Error)?.message?.toLowerCase() || '';
     return errorMessage.includes('connection') || 
            errorMessage.includes('network') || 
            errorMessage.includes('timeout') ||

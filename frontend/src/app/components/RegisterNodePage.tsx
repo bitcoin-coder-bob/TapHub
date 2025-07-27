@@ -279,7 +279,7 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
 
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground">
-            During registration, we'll verify your node ownership by having you sign a message with your NWC credentials. 
+            During registration, we&apos;ll verify your node ownership by having you sign a message with your NWC credentials. 
             This helps maintain trust and security in the TapHub marketplace.
           </p>
         </div>

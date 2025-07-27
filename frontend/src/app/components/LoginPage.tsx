@@ -3,7 +3,7 @@ import { Zap, User, Server, ArrowRight, Wallet, AlertCircle, Network, CheckCircl
 import { albyAuth, AlbyUser, NetworkConfig } from "../services/albyAuth";
 
 interface LoginPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, params?: Record<string, unknown>) => void;
   onLogin: (userType: 'user' | 'node', userData: AlbyUser) => void;
 }
 
@@ -234,7 +234,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
 
           <button
             type="submit"
-            disabled={isLoading || (nwcCredentials.trim() && connectionTest !== 'success')}
+            disabled={isLoading || (nwcCredentials.trim() !== '' && connectionTest !== 'success')}
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (

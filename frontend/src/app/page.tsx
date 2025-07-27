@@ -9,6 +9,7 @@ import { NodeProfilePage } from "./components/NodeProfilePage";
 import { RegisterNodePage } from "./components/RegisterNodePage";
 import { AssetListingDashboard } from "./components/AssetListingDashboard";
 import { AssetPurchaseFlow } from "./components/AssetPurchaseFlow";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { albyAuth, AlbyUser } from "./services/albyAuth";
 
 export default function App() {
@@ -117,7 +118,9 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
       />
-      <main>{renderPage()}</main>
+      <ErrorBoundary>
+        <main>{renderPage()}</main>
+      </ErrorBoundary>
     </div>
   );
 }

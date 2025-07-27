@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw, Copy, Info } from "lucide-react";
+import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { albyAuth, type InvoiceInfo } from "../services/albyAuth";
 import { USD } from "@getalby/sdk";
+import { ErrorDisplay, useErrorRecovery } from "./ErrorBoundary";
 
 interface AlbyPaymentDemoProps {
   assetId: string;
@@ -13,13 +14,23 @@ interface AlbyPaymentDemoProps {
 
 export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel }: AlbyPaymentDemoProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceChecked, setBalanceChecked] = useState(false);
   const [invoice, setInvoice] = useState('');
   const [invoiceInfo, setInvoiceInfo] = useState<InvoiceInfo | null>(null);
   const [showInvoiceInput, setShowInvoiceInput] = useState(false);
+  const [lastFailedOperation, setLastFailedOperation] = useState<(() => Promise<void>) | null>(null);
+  
+  const { 
+    error, 
+    isRetrying, 
+    handleError, 
+    clearError, 
+    retryWithRecovery, 
+    reconnectWallet,
+    getErrorType 
+  } = useErrorRecovery();
 
   useEffect(() => {
     checkBalance();
@@ -39,8 +50,10 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       const balanceMsat = await albyAuth.getBalance();
       setBalance(balanceMsat);
       setBalanceChecked(true);
+      clearError();
     } catch (error) {
       console.error('Failed to check balance:', error);
+      handleError(error as Error);
       setBalanceChecked(true);
     }
   };
@@ -50,10 +63,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       return handleInvoicePayment();
     }
     
-    setIsLoading(true);
-    setError(null);
-    
-    try {
+    const paymentOperation = async () => {
       // Check balance first
       const totalCost = (price + 1) * 1000; // Convert sats to msat and add network fee
       
@@ -80,28 +90,32 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
         setIsLoading(false);
         onSuccess?.();
       }, 2000);
-      
+    };
+    
+    setIsLoading(true);
+    clearError();
+    setLastFailedOperation(() => paymentOperation);
+    
+    try {
+      await paymentOperation();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      handleError(err as Error);
       setIsLoading(false);
     }
   };
 
   const handleInvoicePayment = async () => {
     if (!invoiceInfo?.valid) {
-      setError('Please enter a valid Lightning invoice');
+      handleError(new Error('Please enter a valid Lightning invoice'));
       return;
     }
 
     if (invoiceInfo.expired) {
-      setError('This invoice has expired');
+      handleError(new Error('This invoice has expired'));
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-    
-    try {
+    const invoicePaymentOperation = async () => {
       // Check balance if we know the invoice amount
       if (invoiceInfo.amount && balance !== null) {
         const requiredBalance = invoiceInfo.amount * 1000; // Convert to msat
@@ -119,10 +133,23 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       setSuccess(true);
       setIsLoading(false);
       onSuccess?.();
-      
+    };
+
+    setIsLoading(true);
+    clearError();
+    setLastFailedOperation(() => invoicePaymentOperation);
+    
+    try {
+      await invoicePaymentOperation();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      handleError(err as Error);
       setIsLoading(false);
+    }
+  };
+
+  const handleRetryLastOperation = async () => {
+    if (lastFailedOperation) {
+      await retryWithRecovery(lastFailedOperation);
     }
   };
 
@@ -169,10 +196,13 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-destructive" />
-          <span className="text-sm text-destructive">{error}</span>
-        </div>
+        <ErrorDisplay
+          error={error}
+          type={getErrorType(error)}
+          onRetry={lastFailedOperation ? handleRetryLastOperation : undefined}
+          onReconnect={getErrorType(error) === 'connection' ? reconnectWallet : undefined}
+          className="mb-4"
+        />
       )}
 
       <div className="space-y-4">
@@ -299,13 +329,16 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
           <button
             onClick={handlePayment}
             disabled={
-              isLoading || 
+              isLoading || isRetrying ||
               (showInvoiceInput ? (!invoiceInfo?.valid || invoiceInfo?.expired) : (balance !== null && balance < (price + 1) * 1000))
             }
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {isLoading ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            {isLoading || isRetrying ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                {isRetrying ? 'Retrying...' : 'Processing...'}
+              </>
             ) : (
               <>
                 <Zap className="w-4 h-4" />
