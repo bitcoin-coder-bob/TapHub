@@ -1,31 +1,95 @@
-import { Plus, Package, Zap, DollarSign } from "lucide-react";
+import { Plus, Package, Zap, DollarSign, X } from "lucide-react";
+import { useState, useEffect } from "react";
+
+interface Asset {
+  id: string;
+  name: string;
+  symbol: string;
+  price: string;
+  priceUnit: string;
+  available: string;
+  status: "Active" | "Draft";
+}
 
 interface AssetListingDashboardProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardProps) {
-  // Mock user assets
-  const userAssets = [
-    {
-      id: "1",
-      name: "My Gaming Token",
-      symbol: "GAME",
-      price: "0.0002",
-      priceUnit: "BTC",
-      available: "10,000",
-      status: "Active"
-    },
-    {
-      id: "2", 
-      name: "Art Collection NFT",
-      symbol: "ART",
-      price: "0.005",
-      priceUnit: "BTC", 
-      available: "5",
-      status: "Draft"
+  const [userAssets, setUserAssets] = useState<Asset[]>([]);
+  const [showNewAssetModal, setShowNewAssetModal] = useState(false);
+  const [newAsset, setNewAsset] = useState<Omit<Asset, 'id'>>({
+    name: "",
+    symbol: "",
+    price: "",
+    priceUnit: "BTC",
+    available: "",
+    status: "Draft"
+  });
+
+  // Load assets from localStorage on component mount
+  useEffect(() => {
+    const savedAssets = localStorage.getItem('tapHubAssets');
+    if (savedAssets) {
+      try {
+        setUserAssets(JSON.parse(savedAssets));
+      } catch (error) {
+        console.error('Error loading assets from localStorage:', error);
+        setUserAssets([]);
+      }
     }
-  ];
+  }, []);
+
+  // Save assets to localStorage whenever userAssets changes
+  useEffect(() => {
+    localStorage.setItem('tapHubAssets', JSON.stringify(userAssets));
+  }, [userAssets]);
+
+  const handleCreateAsset = () => {
+    if (!newAsset.name || !newAsset.symbol || !newAsset.price || !newAsset.available) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const asset: Asset = {
+      ...newAsset,
+      id: Date.now().toString()
+    };
+
+    setUserAssets(prev => [...prev, asset]);
+    setNewAsset({
+      name: "",
+      symbol: "",
+      price: "",
+      priceUnit: "BTC",
+      available: "",
+      status: "Draft"
+    });
+    setShowNewAssetModal(false);
+  };
+
+  const handleDeleteAsset = (id: string) => {
+    if (confirm('Are you sure you want to delete this asset?')) {
+      setUserAssets(prev => prev.filter(asset => asset.id !== id));
+    }
+  };
+
+  const handleEditAsset = (id: string) => {
+    const asset = userAssets.find(a => a.id === id);
+    if (asset) {
+      setNewAsset({
+        name: asset.name,
+        symbol: asset.symbol,
+        price: asset.price,
+        priceUnit: asset.priceUnit,
+        available: asset.available,
+        status: asset.status
+      });
+      setShowNewAssetModal(true);
+      // Remove the old asset and will create a new one
+      setUserAssets(prev => prev.filter(a => a.id !== id));
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -46,7 +110,10 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             Manage your Taproot Asset listings
           </p>
         </div>
-        <button className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2">
+        <button 
+          onClick={() => setShowNewAssetModal(true)}
+          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2"
+        >
           <Plus className="w-4 h-4" />
           New Asset
         </button>
@@ -116,8 +183,17 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
                   }`}>
                     {asset.status}
                   </span>
-                  <button className="px-3 py-1 text-xs border border-border rounded hover:bg-accent transition-colors">
+                  <button 
+                    onClick={() => handleEditAsset(asset.id)}
+                    className="px-3 py-1 text-xs border border-border rounded hover:bg-accent transition-colors"
+                  >
                     Edit
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteAsset(asset.id)}
+                    className="px-3 py-1 text-xs border border-red-500/20 text-red-500 rounded hover:bg-red-500/10 transition-colors"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
@@ -130,12 +206,121 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             <p className="text-muted-foreground mb-4">
               Start by creating your first Taproot Asset listing
             </p>
-            <button className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors">
+            <button 
+              onClick={() => setShowNewAssetModal(true)}
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+            >
               Create First Asset
             </button>
           </div>
         )}
       </div>
+
+      {/* New Asset Modal */}
+      {showNewAssetModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Create New Asset</h2>
+              <button 
+                onClick={() => setShowNewAssetModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Asset Name *</label>
+                <input
+                  type="text"
+                  value={newAsset.name}
+                  onChange={(e) => setNewAsset(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., My Gaming Token"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Symbol *</label>
+                <input
+                  type="text"
+                  value={newAsset.symbol}
+                  onChange={(e) => setNewAsset(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., GAME"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Price *</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={newAsset.price}
+                    onChange={(e) => setNewAsset(prev => ({ ...prev, price: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="0.0002"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Price Unit</label>
+                  <select
+                    value={newAsset.priceUnit}
+                    onChange={(e) => setNewAsset(prev => ({ ...prev, priceUnit: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="BTC">BTC</option>
+                    <option value="sats">sats</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Available Quantity *</label>
+                <input
+                  type="text"
+                  value={newAsset.available}
+                  onChange={(e) => setNewAsset(prev => ({ ...prev, available: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., 10,000"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  value={newAsset.status}
+                  onChange={(e) => setNewAsset(prev => ({ ...prev, status: e.target.value as "Active" | "Draft" }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Active">Active</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowNewAssetModal(false)}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAsset}
+                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+              >
+                Create Asset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
