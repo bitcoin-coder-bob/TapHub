@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/lightninglabs/taproot-assets/taprpc/universerpc"
+
 	"github.com/lightninglabs/taproot-assets/taprpc"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
@@ -20,6 +22,7 @@ type Handler struct {
 	litRpcURI       string
 	lightningClient lnrpc.LightningClient
 	tapClient       taprpc.TaprootAssetsClient
+	universeClient  universerpc.UniverseClient
 }
 
 func newProxy(target string, prefix string) (*proxy, error) {
@@ -47,7 +50,7 @@ func newProxy(target string, prefix string) (*proxy, error) {
 	return &proxy{p}, nil
 }
 
-func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsClient) (*Handler, error) {
+func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsClient, universeClient universerpc.UniverseClient) (*Handler, error) {
 	// o, err := newProxy("https://"+oracleWeb, "/v1/oracle/proxy")
 	// if err != nil {
 	// 	return nil, err
@@ -57,6 +60,7 @@ func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsCl
 		// oracleProxy:     o,
 		lightningClient: lightningClient,
 		tapClient:       tapClient,
+		universeClient:  universeClient,
 	}, nil
 }
 
@@ -64,6 +68,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/detectChannels", h.DetectChannels)
 	mux.HandleFunc("/verifyMessage", h.VerifyMessage)
+	mux.HandleFunc("/verifyProof", h.VerifyProof)
+
 	mux.ServeHTTP(w, r)
 }
 

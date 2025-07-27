@@ -16,6 +16,8 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 
 	"github.com/lightninglabs/taproot-assets/taprpc"
+	"github.com/lightninglabs/taproot-assets/taprpc/universerpc"
+
 	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/linden/httplog"
 	"github.com/rs/cors"
@@ -82,15 +84,18 @@ func main() {
 		return
 	}
 	fmt.Printf("LND info: %s\n", info.Alias)
-	info2, err := taprpc.NewTaprootAssetsClient(tapConn).GetInfo(context.Background(), &taprpc.GetInfoRequest{})
+	tc := taprpc.NewTaprootAssetsClient(tapConn)
+	info2, err := tc.GetInfo(context.Background(), &taprpc.GetInfoRequest{})
 	if err != nil {
 		fmt.Println("error getting tap info: ", err)
 		return
 	}
 	fmt.Printf("TAPD info: %s\n", info2)
-	tc := taprpc.NewTaprootAssetsClient(tapConn)
 
-	apiHandler, err := api.New(ln, tc)
+	uc := universerpc.NewUniverseClient(tapConn)
+
+
+	apiHandler, err := api.New(ln, tc, uc)
 	if err != nil {
 		fmt.Println("error setting up api: ", err)
 		return
