@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withMongoConnection } from "../../../utils/mongoUtils";
-import mongo from "mongodb";
 
 export async function POST(request: NextRequest) {
   try {
