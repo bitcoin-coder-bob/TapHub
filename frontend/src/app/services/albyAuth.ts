@@ -1,4 +1,5 @@
 import { LN, USD, nwc } from "@getalby/sdk";
+import { LightningAddress, Invoice } from "@getalby/lightning-tools";
 
 export interface AlbyUser {
   type: 'user' | 'node';
@@ -23,6 +24,14 @@ export interface NetworkConfig {
 }
 
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
+
+export interface InvoiceInfo {
+  amount?: number;
+  description?: string;
+  expired: boolean;
+  valid: boolean;
+  errorMessage?: string;
+}
 
 export interface QueuedOperation {
   id: string;
@@ -687,6 +696,48 @@ class AlbyAuthService {
       op.reject(new Error('Operation cancelled due to logout'));
     });
     this.operationQueue = [];
+  }
+
+  // Validate Lightning invoice
+  validateInvoice(invoiceString: string): InvoiceInfo {
+    if (!invoiceString || invoiceString.trim() === '') {
+      return {
+        valid: false,
+        expired: false,
+        errorMessage: 'Invoice cannot be empty'
+      };
+    }
+
+    try {
+      const invoice = new Invoice(invoiceString);
+      
+      // Check if invoice format is valid
+      if (!invoice.valid) {
+        return {
+          valid: false,
+          expired: false,
+          errorMessage: 'Invalid invoice format'
+        };
+      }
+
+      // Check if invoice is expired
+      const now = Math.floor(Date.now() / 1000);
+      const isExpired = invoice.timeExpireDate && invoice.timeExpireDate < now;
+
+      return {
+        valid: true,
+        expired: !!isExpired,
+        amount: invoice.satoshi,
+        description: invoice.description || undefined,
+        errorMessage: isExpired ? 'Invoice has expired' : undefined
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        expired: false,
+        errorMessage: 'Failed to decode invoice'
+      };
+    }
   }
 
   // Helper to check if an error is connection-related

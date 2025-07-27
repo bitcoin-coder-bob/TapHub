@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
-import { albyAuth } from "../services/albyAuth";
+import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw, Copy, Info } from "lucide-react";
+import { albyAuth, type InvoiceInfo } from "../services/albyAuth";
 import { USD } from "@getalby/sdk";
 
 interface AlbyPaymentDemoProps {
@@ -17,10 +17,22 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
   const [success, setSuccess] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceChecked, setBalanceChecked] = useState(false);
+  const [invoice, setInvoice] = useState('');
+  const [invoiceInfo, setInvoiceInfo] = useState<InvoiceInfo | null>(null);
+  const [showInvoiceInput, setShowInvoiceInput] = useState(false);
 
   useEffect(() => {
     checkBalance();
   }, []);
+
+  useEffect(() => {
+    if (invoice.trim()) {
+      const validation = albyAuth.validateInvoice(invoice.trim());
+      setInvoiceInfo(validation);
+    } else {
+      setInvoiceInfo(null);
+    }
+  }, [invoice]);
 
   const checkBalance = async () => {
     try {
@@ -34,6 +46,10 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
   };
 
   const handlePayment = async () => {
+    if (showInvoiceInput) {
+      return handleInvoicePayment();
+    }
+    
     setIsLoading(true);
     setError(null);
     
@@ -64,6 +80,45 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
         setIsLoading(false);
         onSuccess?.();
       }, 2000);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Payment failed');
+      setIsLoading(false);
+    }
+  };
+
+  const handleInvoicePayment = async () => {
+    if (!invoiceInfo?.valid) {
+      setError('Please enter a valid Lightning invoice');
+      return;
+    }
+
+    if (invoiceInfo.expired) {
+      setError('This invoice has expired');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Check balance if we know the invoice amount
+      if (invoiceInfo.amount && balance !== null) {
+        const requiredBalance = invoiceInfo.amount * 1000; // Convert to msat
+        if (balance < requiredBalance) {
+          const balanceInSats = Math.floor(balance / 1000);
+          throw new Error(`Insufficient balance. You have ${balanceInSats.toLocaleString()} sats but need ${invoiceInfo.amount.toLocaleString()} sats.`);
+        }
+      }
+
+      const result = await albyAuth.makePayment(invoice.trim());
+      
+      // Update balance after successful payment
+      await checkBalance();
+      
+      setSuccess(true);
+      setIsLoading(false);
+      onSuccess?.();
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
@@ -147,30 +202,106 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
           </div>
         )}
 
+        {/* Invoice Input Toggle */}
         <div className="bg-muted/50 p-4 rounded-lg">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-muted-foreground">Asset</span>
-            <span className="font-medium">{assetName}</span>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium">Payment Method</span>
+            <button
+              onClick={() => setShowInvoiceInput(!showInvoiceInput)}
+              className="text-sm text-primary hover:text-primary/80 transition-colors"
+            >
+              {showInvoiceInput ? 'Use Asset Purchase' : 'Pay Lightning Invoice'}
+            </button>
           </div>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-muted-foreground">Price</span>
-            <span className="font-medium">{price} sats</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Network Fee</span>
-            <span className="font-medium">~1 sat</span>
-          </div>
+          
+          {showInvoiceInput ? (
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="invoice" className="block text-sm font-medium mb-2">
+                  Lightning Invoice
+                </label>
+                <textarea
+                  id="invoice"
+                  value={invoice}
+                  onChange={(e) => setInvoice(e.target.value)}
+                  placeholder="lnbc1..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background resize-none text-sm font-mono"
+                />
+              </div>
+              
+              {/* Invoice Validation Status */}
+              {invoice.trim() && invoiceInfo && (
+                <div className={`p-3 rounded-lg border ${
+                  invoiceInfo.valid && !invoiceInfo.expired
+                    ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800'
+                    : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    {invoiceInfo.valid && !invoiceInfo.expired ? (
+                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      {invoiceInfo.errorMessage ? (
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          {invoiceInfo.errorMessage}
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                            Valid Invoice
+                          </p>
+                          {invoiceInfo.amount && (
+                            <p className="text-sm text-muted-foreground">
+                              Amount: {invoiceInfo.amount.toLocaleString()} sats
+                            </p>
+                          )}
+                          {invoiceInfo.description && (
+                            <p className="text-sm text-muted-foreground">
+                              Description: {invoiceInfo.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-muted-foreground">Asset</span>
+                <span className="font-medium">{assetName}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-muted-foreground">Price</span>
+                <span className="font-medium">{price} sats</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Network Fee</span>
+                <span className="font-medium">~1 sat</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border pt-4">
-          <div className="flex justify-between items-center mb-4">
-            <span className="font-semibold">Total</span>
-            <span className="font-semibold text-lg">{price + 1} sats</span>
-          </div>
+          {!showInvoiceInput && (
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-semibold">Total</span>
+              <span className="font-semibold text-lg">{price + 1} sats</span>
+            </div>
+          )}
 
           <button
             onClick={handlePayment}
-            disabled={isLoading || (balance !== null && balance < (price + 1) * 1000)}
+            disabled={
+              isLoading || 
+              (showInvoiceInput ? (!invoiceInfo?.valid || invoiceInfo?.expired) : (balance !== null && balance < (price + 1) * 1000))
+            }
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (
@@ -178,7 +309,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
             ) : (
               <>
                 <Zap className="w-4 h-4" />
-                Pay with Alby
+                {showInvoiceInput ? 'Pay Invoice' : 'Pay with Alby'}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
