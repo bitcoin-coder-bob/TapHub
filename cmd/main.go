@@ -29,7 +29,9 @@ const TetherDir = "storeTetherLitd"
 
 var Port string
 var OracleRpcUri string
-var rpcServer string
+var rpcServerLnd string
+var rpcServerTap string
+
 var tapTlsCertPath string
 var tapMacaroonPath string
 var lndtTlsCertPath string
@@ -39,7 +41,9 @@ var network string
 func setFlags() {
 	flag.StringVar(&Port, "port", "8081", "")
 	flag.StringVar(&OracleRpcUri, "oracle_rpc_uri", "", "")
-	flag.StringVar(&rpcServer, "rpcserver", "127.0.0.1:10009", "rpc server of node")
+	flag.StringVar(&rpcServerLnd, "rpcserverLnd", "127.0.0.1:10009", "rpc server of node")
+	flag.StringVar(&rpcServerTap, "rpcserverTap", "127.0.0.1:10009", "rpc server of node")
+
 	flag.StringVar(&tapTlsCertPath, "tap-tlscertPath", "/home/bob/.lit/tls.cert", "path to tap tls cert")
 	flag.StringVar(&tapMacaroonPath, "tap-macaroonPath", "/home/bob/.tapd/data/testnet4/admin.macaroon", "path to lit macaroon")
 	flag.StringVar(&lndtTlsCertPath, "lnd-tlscertPath", "/home/bob/.lnd/tls.cert", "path to lnd tls cert")
@@ -52,19 +56,20 @@ func setFlags() {
 func main() {
 	fmt.Printf("starting\n")
 	setFlags()
-	fmt.Printf("rpcserver: %s\n", rpcServer)
+	fmt.Printf("rpcserverLnd: %s\n", rpcServerLnd)
+	fmt.Printf("rpcServerTap: %s\n", rpcServerTap)
 	fmt.Printf("tapTlsCertPath: %s\n", tapTlsCertPath)
 	fmt.Printf("tapMacaroonPath: %s\n", tapMacaroonPath)
 	fmt.Printf("lndtTlsCertPath: %s\n", lndtTlsCertPath)
 	fmt.Printf("lndMacaroonPath: %s\n", lndMacaroonPath)
 	fmt.Printf("network: %s\n", network)
 
-	tapConn, err := setupNodeConn(rpcServer, tapMacaroonPath, tapTlsCertPath, "", "")
+	tapConn, err := setupNodeConn(rpcServerTap, tapMacaroonPath, tapTlsCertPath, "", "")
 	if err != nil {
 		fmt.Println("error setting up tap connection: ", err)
 		return
 	}
-	lndConn, err := setupNodeConn(rpcServer, lndMacaroonPath, lndtTlsCertPath, "", "")
+	lndConn, err := setupNodeConn(rpcServerLnd, lndMacaroonPath, lndtTlsCertPath, "", "")
 	if err != nil {
 		fmt.Println("error setting up lnd connection: ", err)
 		return
@@ -77,6 +82,12 @@ func main() {
 		return
 	}
 	fmt.Printf("LND info: %s\n", info.Alias)
+	info2, err := taprpc.NewTaprootAssetsClient(tapConn).GetInfo(context.Background(), &taprpc.GetInfoRequest{})
+	if err != nil {
+		fmt.Println("error getting tap info: ", err)
+		return
+	}
+	fmt.Printf("TAPD info: %s\n", info2)
 	tc := taprpc.NewTaprootAssetsClient(tapConn)
 
 	apiHandler, err := api.New(ln, tc)
