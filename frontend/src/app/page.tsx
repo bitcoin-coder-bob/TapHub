@@ -55,6 +55,8 @@ export default function App() {
         return <AssetDiscoveryPage onNavigate={navigate as (page: string, params: unknown) => void} />;
       case "profile":
         return <NodeProfilePage onNavigate={navigate} />;
+      case "node-profile":
+        return <NodeProfilePage onNavigate={navigate} nodePubkey={pageParams.nodePubkey as string} />;
       case "register":
         return <RegisterNodePage onNavigate={navigate} onLogin={handleLogin} params={pageParams} />;
       case "dashboard":
