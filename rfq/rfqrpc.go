@@ -1,6 +1,7 @@
 package rfq
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -9,12 +10,8 @@ import (
 	"time"
 
 	"github.com/lightninglabs/taproot-assets/rfqmath"
-	"github.com/lightninglabs/taproot-assets/rpcutils"
 	oraclerpc "github.com/lightninglabs/taproot-assets/taprpc/priceoraclerpc"
 )
-
-// 11 comes from fact that there are 10^11 msats per 1 btc = 100,000,000,000 msats per bitcoin
-var decimalsPerMsat = float64(11)
 
 func isMatchingAsset(assetSpecifier *oraclerpc.AssetSpecifier, desiredAssetId string) bool {
 	// An unset asset specifier does not represent BTC
@@ -49,7 +46,10 @@ func (p *RpcPriceOracleServer) getAssetRates(transactionType oraclerpc.Transacti
 		fp := rfqmath.FixedPointFromUint64[rfqmath.BigInt](
 			uint64(realPerBtc*unitMultiplier), 0,
 		)
-		subjectAssetRate, _ = rpcutils.MarshalBigIntFixedPoint(fp)
+		subjectAssetRate = &oraclerpc.FixedPoint{
+			Coefficient: fp.Coefficient.String(),
+			Scale:       uint32(fp.Scale),
+		}
 
 		log.Printf("Type: PURCHASE quoted rate(%s per 1 BTC): %f\n", p.cfg.Ticker, realPerBtc)
 	} else {
@@ -65,7 +65,10 @@ func (p *RpcPriceOracleServer) getAssetRates(transactionType oraclerpc.Transacti
 			uint64(realPerBtc*unitMultiplier), 0,
 		)
 
-		subjectAssetRate, _ = rpcutils.MarshalBigIntFixedPoint(fp)
+		subjectAssetRate = &oraclerpc.FixedPoint{
+			Coefficient: fp.Coefficient.String(),
+			Scale:       uint32(fp.Scale),
+		}
 
 		log.Printf("Type: SELL quoted rate(%s per 1 BTC): %f\n", p.cfg.Ticker, realPerBtc)
 	}
@@ -82,7 +85,9 @@ func (p *RpcPriceOracleServer) getAssetRates(transactionType oraclerpc.Transacti
 func (p *RpcPriceOracleServer) QueryAssetRates(_ context.Context,
 	req *oraclerpc.QueryAssetRatesRequest) (
 	*oraclerpc.QueryAssetRatesResponse, error) {
-	isBtc := rpcutils.IsAssetBtc(req.PaymentAsset)
+	fmt.Printf("\n\nRFQ WAS HIT\n\n")
+
+	isBtc := IsAssetBtc(req.PaymentAsset)
 	if !isBtc {
 		return &oraclerpc.QueryAssetRatesResponse{
 			Result: &oraclerpc.QueryAssetRatesResponse_Error{
@@ -142,4 +147,37 @@ func (p *RpcPriceOracleServer) QueryAssetRates(_ context.Context,
 			},
 		},
 	}, nil
+}
+
+func IsAssetBtc(assetSpecifier *oraclerpc.AssetSpecifier) bool {
+	// An unset asset specifier does not represent BTC.
+	if assetSpecifier == nil {
+		return false
+	}
+
+	// Verify that the asset specifier has a valid asset ID (either bytes or
+	// string). The asset ID must be all zeros for the asset specifier to
+	// represent BTC.
+	assetIdBytes := assetSpecifier.GetAssetId()
+	assetIdStr := assetSpecifier.GetAssetIdStr()
+
+	if len(assetIdBytes) != 32 && assetIdStr == "" {
+		return false
+	}
+
+	var assetId [32]byte
+	copy(assetId[:], assetIdBytes)
+
+	var zeroAssetId [32]byte
+	zeroAssetHexStr := hex.EncodeToString(zeroAssetId[:])
+
+	isAssetIdZero := bytes.Equal(assetId[:], zeroAssetId[:]) ||
+		assetIdStr == zeroAssetHexStr
+
+	// Ensure that the asset specifier does not have any group key related
+	// fields set. When specifying BTC, the group key fields must be unset.
+	groupKeySet := assetSpecifier.GetGroupKey() != nil ||
+		assetSpecifier.GetGroupKeyStr() != ""
+
+	return isAssetIdZero && !groupKeySet
 }

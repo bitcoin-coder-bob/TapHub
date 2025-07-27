@@ -2,6 +2,7 @@ package main
 
 import (
 	"TapHub/api"
+	"TapHub/rfq"
 	"context"
 	"crypto/x509"
 	"encoding/hex"
@@ -40,9 +41,12 @@ var tapMacaroonPath string
 var lndtTlsCertPath string
 var lndMacaroonPath string
 var network string
+var apiNinjaKey string
+
+// go run main.go  -port=8085 -rpcserverLnd=127.0.0.1:10001 -rpcserverTap=127.0.0.1:12029 -tap-tlscertPath=/home/bob/.polar/networks/3/volumes/tapd/alice-tap/tls.cert -tap-macaroonPath=/home/bob/.polar/networks/3/volumes/tapd/alice-tap/data/regtest/admin.macaroon -lnd-tlscertPath=/home/bob/.polar/networks/3/volumes/lnd/alice/tls.cert -lnd-macaroonPath=/home/bob/.polar/networks/3/volumes/lnd/alice/data/chain/bitcoin/regtest/admin.macaroon -network=regtest -apiNinjaKey
 
 func setFlags() {
-	flag.StringVar(&Port, "port", "8081", "")
+	flag.StringVar(&Port, "port", "8085", "")
 	flag.StringVar(&OracleRpcUri, "oracle_rpc_uri", "", "")
 	flag.StringVar(&rpcServerLnd, "rpcserverLnd", "127.0.0.1:10009", "rpc server of node")
 	flag.StringVar(&rpcServerTap, "rpcserverTap", "127.0.0.1:10009", "rpc server of node")
@@ -52,7 +56,7 @@ func setFlags() {
 	flag.StringVar(&lndtTlsCertPath, "lnd-tlscertPath", "/home/bob/.lnd/tls.cert", "path to lnd tls cert")
 	flag.StringVar(&lndMacaroonPath, "lnd-macaroonPath", "/home/bob/.lnd/data/chain/bitcoin/testnet4/admin.macaroon", "path to lnd macaroon")
 	flag.StringVar(&network, "network", "testnet4", "which lightning network")
-
+	flag.StringVar(&apiNinjaKey, "apiNinjaKey", "", "api key for api-ninjas.com")
 	flag.Parse()
 }
 
@@ -67,7 +71,7 @@ func main() {
 	fmt.Printf("lndMacaroonPath: %s\n", lndMacaroonPath)
 	fmt.Printf("network: %s\n", network)
 
-	oracle, err := NewOracle()
+	oracle, err := rfq.NewOracle()
 	if err != nil {
 		panic(err)
 	}
@@ -215,25 +219,4 @@ func setupNodeConn(host string, macPath string, tlsCertPath string, macHex strin
 	}
 
 	return conn, nil
-}
-
-func NewOracle() (*rfq.MarketDataConfig, error) {
-	orc := &rfq.MarketDataConfig{
-		PriceDataUrl:         "https://api.bitpreco.com/btc-brl/ticker",
-		ServiceListenAddress: "127.0.0.1:8095",
-		DesiredAssetIds:      rfq.StringSlice{}, // need to pass an asset id that the rfq will recognize
-		Ticker:               "BobBux",
-		BtcAssetId:           "0000000000000000000000000000000000000000000000000000000000000000",
-		DecimalDisplay:       8,
-		MaxAssetTradeAmount:  120_000_000_000,
-		ExchangeSpreadBips:   151,
-		JoltzFeeBips:         0,
-	}
-
-	err := orc.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	return orc, nil
 }

@@ -5,11 +5,13 @@ go 1.24.5
 replace google.golang.org/protobuf => github.com/lightninglabs/protobuf-go-hex-display v1.30.0-hex-display
 
 require (
+	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/lightninglabs/taproot-assets v0.6.1
 	github.com/lightninglabs/taproot-assets/taprpc v1.0.8-0.20250617163017-cf2a5e5bb47c
 	github.com/lightningnetwork/lnd v0.19.2-beta
 	github.com/linden/httplog v0.0.4
 	github.com/rs/cors v1.11.1
+	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.74.2
 	gopkg.in/macaroon.v2 v2.1.0
 
@@ -44,7 +46,6 @@ require (
 	github.com/btcsuite/winsvc v1.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/coder/websocket v1.8.13 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
@@ -144,7 +145,6 @@ require (
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 // indirect
 	github.com/tv42/zbase32 v0.0.0-20160707012821-501572607d02 // indirect
