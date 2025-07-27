@@ -11,10 +11,20 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error saving verified node:", error);
+    
+    let errorMessage = "Failed to save verified node";
+    
+    if (error.name === 'MongoServerSelectionError' && error.message?.includes('timed out')) {
+      errorMessage = "MongoDB connection timed out. Please ensure: 1) Your IP is whitelisted in MongoDB Atlas Network Access, 2) The cluster is active (not paused), 3) You have internet connectivity";
+    }
+    
     return NextResponse.json(
-      { error: "Failed to save verified node" },
+      { 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

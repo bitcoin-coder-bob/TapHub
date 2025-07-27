@@ -44,6 +44,8 @@ class MongoConnectionManager {
         retryReads: true,
       };
 
+      console.log('Attempting MongoDB connection to:', process.env.MONGODB_URI?.replace(/:[^:]*@/, ':****@'));
+      
       this.client = new mongo.MongoClient(process.env.MONGODB_URI!, options);
       await this.client.connect();
       
