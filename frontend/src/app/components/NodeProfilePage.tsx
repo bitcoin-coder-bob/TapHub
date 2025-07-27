@@ -262,24 +262,24 @@ export function NodeProfilePage({
           {showInvoiceForm && !createdInvoice && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Amount (sats)</label>
+                <label className="block text-sm font-medium mb-2 text-foreground">Amount (sats)</label>
                 <input
                   type="number"
                   value={invoiceAmount}
                   onChange={(e) => setInvoiceAmount(e.target.value)}
                   placeholder="Enter amount in sats"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   min="1"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Description (optional)</label>
+                <label className="block text-sm font-medium mb-2 text-foreground">Description (optional)</label>
                 <input
                   type="text"
                   value={invoiceDescription}
                   onChange={(e) => setInvoiceDescription(e.target.value)}
                   placeholder="Payment description"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div className="flex gap-2">
@@ -315,7 +315,7 @@ export function NodeProfilePage({
               <div className="grid md:grid-cols-2 gap-6">
                 {/* QR Code */}
                 <div className="flex flex-col items-center space-y-3">
-                  <h3 className="text-lg font-medium">QR Code</h3>
+                  <h3 className="text-lg font-medium text-foreground">QR Code</h3>
                   {qrCodeDataUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 
@@ -331,21 +331,21 @@ export function NodeProfilePage({
 
                 {/* Invoice Details */}
                 <div className="space-y-3">
-                  <h3 className="text-lg font-medium">Invoice Details</h3>
+                  <h3 className="text-lg font-medium text-foreground">Invoice Details</h3>
                   <div className="space-y-2">
                     <div>
                       <p className="text-sm text-muted-foreground">Amount</p>
-                      <p className="font-mono">{invoiceAmount} sats</p>
+                      <p className="font-mono text-foreground">{invoiceAmount} sats</p>
                     </div>
                     {invoiceDescription && (
                       <div>
                         <p className="text-sm text-muted-foreground">Description</p>
-                        <p className="text-sm">{invoiceDescription}</p>
+                        <p className="text-sm text-foreground">{invoiceDescription}</p>
                       </div>
                     )}
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Hash</p>
-                      <p className="font-mono text-xs break-all">{createdInvoice.payment_hash}</p>
+                      <p className="font-mono text-xs break-all text-foreground">{createdInvoice.payment_hash}</p>
                     </div>
                   </div>
                 </div>
@@ -353,16 +353,16 @@ export function NodeProfilePage({
 
               {/* Invoice String and Copy */}
               <div className="space-y-3">
-                <h3 className="text-lg font-medium">Lightning Invoice</h3>
+                <h3 className="text-lg font-medium text-foreground">Lightning Invoice</h3>
                 <div className="relative">
                   <textarea
                     value={createdInvoice.invoice}
                     readOnly
-                    className="w-full h-24 px-3 py-2 border border-border rounded-lg bg-accent/50 font-mono text-xs resize-none"
+                    className="w-full h-24 px-3 py-2 border border-border rounded-lg bg-muted text-muted-foreground font-mono text-xs resize-none selection:bg-primary selection:text-primary-foreground"
                   />
                   <button
                     onClick={handleCopyInvoice}
-                    className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-background border border-border rounded text-xs hover:bg-accent transition-colors"
+                    className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-background text-foreground border border-border rounded text-xs hover:bg-accent transition-colors"
                   >
                     {copyStatus === 'copied' ? (
                       <>
