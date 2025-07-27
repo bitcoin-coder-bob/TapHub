@@ -59,8 +59,8 @@ func (h *Handler) DetectChannels(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) ValidateMessage(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("inside validate message\n")
+func (h *Handler) VerifyMessage(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("inside verify message\n")
 	var req struct {
 		Message   string `json:"message"`
 		Signature string `json:"signature"`
