@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet } from "lucide-react";
+import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle } from "lucide-react";
 
-import { AlbyUser, albyAuth } from "../services/albyAuth";
+import { AlbyUser, albyAuth, ConnectionState } from "../services/albyAuth";
 // import Image from "next/image";
 
 interface NavigationProps {
@@ -17,15 +17,28 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
 
   useEffect(() => {
     if (user) {
       fetchBalance();
+      // Subscribe to connection state changes
+      const unsubscribe = albyAuth.onConnectionStateChange(setConnectionState);
+      // Get initial state
+      setConnectionState(albyAuth.getConnectionState());
+      return unsubscribe;
     } else {
       setBalance(null);
       setBalanceError(null);
     }
   }, [user]);
+
+  // Refresh balance when connection is restored
+  useEffect(() => {
+    if (connectionState === 'connected' && user) {
+      fetchBalance();
+    }
+  }, [connectionState, user]);
 
   const fetchBalance = async () => {
     try {
@@ -88,6 +101,25 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
           <div className="hidden md:flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2">
+                {/* Connection Status Indicator */}
+                <div className="flex items-center gap-1.5">
+                  <Circle
+                    className={`w-2.5 h-2.5 fill-current ${
+                      connectionState === 'connected'
+                        ? 'text-green-500'
+                        : connectionState === 'connecting'
+                        ? 'text-yellow-500 animate-pulse'
+                        : 'text-red-500'
+                    }`}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {connectionState === 'connected'
+                      ? 'Connected'
+                      : connectionState === 'connecting'
+                      ? 'Connecting...'
+                      : 'Disconnected'}
+                  </span>
+                </div>
                 {/* Balance Display */}
                 {balance !== null ? (
                   <div className="flex items-center gap-1 px-3 py-2 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400">
@@ -170,6 +202,27 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
               <div className="pt-2 border-t border-border mt-2 space-y-2">
                 {user ? (
                   <>
+                    {/* Mobile Connection Status */}
+                    <div className="w-full px-3 py-2 bg-accent/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Circle
+                          className={`w-2.5 h-2.5 fill-current ${
+                            connectionState === 'connected'
+                              ? 'text-green-500'
+                              : connectionState === 'connecting'
+                              ? 'text-yellow-500 animate-pulse'
+                              : 'text-red-500'
+                          }`}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {connectionState === 'connected'
+                            ? 'Connected'
+                            : connectionState === 'connecting'
+                            ? 'Connecting...'
+                            : 'Disconnected'}
+                        </span>
+                      </div>
+                    </div>
                     {/* Mobile Balance Display */}
                     {balance !== null ? (
                       <div className="w-full px-3 py-2 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400">

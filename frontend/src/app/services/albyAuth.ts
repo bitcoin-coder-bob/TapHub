@@ -22,6 +22,16 @@ export interface NetworkConfig {
   description: string;
 }
 
+export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
+
+export interface QueuedOperation {
+  id: string;
+  type: 'payment' | 'balance' | 'info';
+  operation: () => Promise<any>;
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+}
+
 class AlbyAuthService {
   private static instance: AlbyAuthService;
   private currentUser: AlbyUser | null = null;
@@ -33,9 +43,17 @@ class AlbyAuthService {
     displayName: 'Mutinynet',
     description: 'Bitcoin Testnet for Lightning Network development'
   };
+  private connectionState: ConnectionState = 'disconnected';
+  private connectionCheckInterval: NodeJS.Timeout | null = null;
+  private reconnectAttempt = 0;
+  private maxReconnectAttempts = 5;
+  private operationQueue: QueuedOperation[] = [];
+  private isReconnecting = false;
+  private connectionStateListeners: ((state: ConnectionState) => void)[] = [];
 
   private constructor() {
     this.initializeNetwork();
+    this.startConnectionMonitoring();
   }
 
   static getInstance(): AlbyAuthService {
@@ -48,6 +66,8 @@ class AlbyAuthService {
   // Initialize Alby connection with NWC credentials
   async connectWithAlby(credentials: string): Promise<AlbyUser> {
     try {
+      this.setConnectionState('connecting');
+      
       // Initialize both LN and NWC clients
       this.lnClient = new LN(credentials);
       this.nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: credentials });
@@ -62,6 +82,10 @@ class AlbyAuthService {
 
       // Check permissions and get wallet info
       await this.checkPermissions();
+      
+      // Connection successful
+      this.setConnectionState('connected');
+      this.reconnectAttempt = 0;
       
       // Try to get wallet info and create a meaningful username
       const extractedName = this.extractUsernameFromCredentials(credentials);
@@ -94,9 +118,13 @@ class AlbyAuthService {
       this.saveUserToStorage(user);
       this.saveCredentials(credentials);
       
+      // Process any queued operations
+      this.processQueuedOperations();
+      
       return user;
     } catch (error) {
       console.error('Failed to connect with Alby:', error);
+      this.setConnectionState('disconnected');
       throw new Error('Failed to connect with Alby wallet');
     }
   }
@@ -258,7 +286,21 @@ class AlbyAuthService {
       throw new Error('Missing permission: pay_invoice. Please reconnect with payment permissions to make payments.');
     }
 
-    return await this.lnClient.pay(invoice);
+    // If we're disconnected, queue the operation
+    if (this.connectionState === 'disconnected') {
+      return this.queueOperation('payment', () => this.lnClient!.pay(invoice));
+    }
+
+    try {
+      return await this.lnClient.pay(invoice);
+    } catch (error) {
+      // If payment fails due to connection issue, try to reconnect
+      if (this.isConnectionError(error)) {
+        this.handleDisconnection();
+        return this.queueOperation('payment', () => this.lnClient!.pay(invoice));
+      }
+      throw error;
+    }
   }
 
   // Request a payment
@@ -275,6 +317,9 @@ class AlbyAuthService {
     this.lnClient = null;
     this.nwcClient = null;
     this.permissions = [];
+    this.setConnectionState('disconnected');
+    this.stopConnectionMonitoring();
+    this.clearOperationQueue();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('taphub_user');
       localStorage.removeItem('taphub_nwc_credentials');
@@ -497,6 +542,160 @@ class AlbyAuthService {
         this.setNetwork(storedNetwork);
       }
     }
+  }
+
+  // Connection state management methods
+  getConnectionState(): ConnectionState {
+    return this.connectionState;
+  }
+
+  private setConnectionState(state: ConnectionState): void {
+    if (this.connectionState !== state) {
+      this.connectionState = state;
+      this.notifyConnectionStateListeners(state);
+    }
+  }
+
+  onConnectionStateChange(listener: (state: ConnectionState) => void): () => void {
+    this.connectionStateListeners.push(listener);
+    // Return unsubscribe function
+    return () => {
+      this.connectionStateListeners = this.connectionStateListeners.filter(l => l !== listener);
+    };
+  }
+
+  private notifyConnectionStateListeners(state: ConnectionState): void {
+    this.connectionStateListeners.forEach(listener => listener(state));
+  }
+
+  // Connection monitoring
+  private startConnectionMonitoring(): void {
+    if (this.connectionCheckInterval) {
+      return;
+    }
+
+    this.connectionCheckInterval = setInterval(async () => {
+      if (this.nwcClient && this.connectionState === 'connected') {
+        try {
+          // Simple ping to check connection
+          await this.nwcClient.getInfo();
+        } catch (error) {
+          console.error('Connection check failed:', error);
+          this.handleDisconnection();
+        }
+      }
+    }, 30000); // Check every 30 seconds
+  }
+
+  private stopConnectionMonitoring(): void {
+    if (this.connectionCheckInterval) {
+      clearInterval(this.connectionCheckInterval);
+      this.connectionCheckInterval = null;
+    }
+  }
+
+  // Handle disconnection and reconnection
+  private async handleDisconnection(): Promise<void> {
+    this.setConnectionState('disconnected');
+    
+    if (!this.isReconnecting) {
+      this.isReconnecting = true;
+      this.attemptReconnection();
+    }
+  }
+
+  private async attemptReconnection(): Promise<void> {
+    const credentials = this.getStoredCredentials();
+    if (!credentials) {
+      this.isReconnecting = false;
+      return;
+    }
+
+    while (this.reconnectAttempt < this.maxReconnectAttempts) {
+      this.reconnectAttempt++;
+      const backoffDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempt - 1), 30000);
+      
+      console.log(`Reconnection attempt ${this.reconnectAttempt}/${this.maxReconnectAttempts} in ${backoffDelay}ms`);
+      this.setConnectionState('connecting');
+      
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      
+      try {
+        // Try to reinitialize the connection
+        this.lnClient = new LN(credentials);
+        this.nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: credentials });
+        
+        // Test the connection
+        await this.nwcClient.getInfo();
+        
+        // Success!
+        this.setConnectionState('connected');
+        this.reconnectAttempt = 0;
+        this.isReconnecting = false;
+        
+        // Process queued operations
+        this.processQueuedOperations();
+        
+        console.log('Reconnection successful');
+        return;
+      } catch (error) {
+        console.error(`Reconnection attempt ${this.reconnectAttempt} failed:`, error);
+      }
+    }
+    
+    // Max attempts reached
+    console.error('Max reconnection attempts reached');
+    this.isReconnecting = false;
+    this.setConnectionState('disconnected');
+  }
+
+  // Operation queue management
+  private queueOperation<T>(type: QueuedOperation['type'], operation: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const queuedOp: QueuedOperation = {
+        id: Date.now().toString(),
+        type,
+        operation,
+        resolve,
+        reject
+      };
+      
+      this.operationQueue.push(queuedOp);
+      console.log(`Operation queued (${type}), ${this.operationQueue.length} operations in queue`);
+    });
+  }
+
+  private async processQueuedOperations(): Promise<void> {
+    if (this.operationQueue.length === 0) return;
+    
+    console.log(`Processing ${this.operationQueue.length} queued operations`);
+    const queue = [...this.operationQueue];
+    this.operationQueue = [];
+    
+    for (const op of queue) {
+      try {
+        const result = await op.operation();
+        op.resolve(result);
+      } catch (error) {
+        op.reject(error);
+      }
+    }
+  }
+
+  private clearOperationQueue(): void {
+    this.operationQueue.forEach(op => {
+      op.reject(new Error('Operation cancelled due to logout'));
+    });
+    this.operationQueue = [];
+  }
+
+  // Helper to check if an error is connection-related
+  private isConnectionError(error: any): boolean {
+    const errorMessage = error?.message?.toLowerCase() || '';
+    return errorMessage.includes('connection') || 
+           errorMessage.includes('network') || 
+           errorMessage.includes('timeout') ||
+           errorMessage.includes('relay');
   }
 }
 
