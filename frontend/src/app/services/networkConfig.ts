@@ -6,7 +6,7 @@ export interface PolarNodeConfig {
 }
 
 export interface NetworkConfiguration {
-  name: 'mainnet' | 'testnet' | 'regtest';
+  name: 'mainnet' | 'testnet4' | 'regtest';
   displayName: string;
   description: string;
   polarConfig?: PolarNodeConfig;
@@ -24,10 +24,10 @@ export const NETWORK_CONFIGS: Record<string, NetworkConfiguration> = {
       p2pExternal: '020...74@127.0.0.1:9736'
     }
   },
-  testnet: {
-    name: 'testnet',
-    displayName: 'Bitcoin Testnet',
-    description: 'Bitcoin test network'
+  testnet4: {
+    name: 'testnet4',
+    displayName: 'Bitcoin Testnet4',
+    description: 'Bitcoin test network (testnet4)'
   },
   mainnet: {
     name: 'mainnet',

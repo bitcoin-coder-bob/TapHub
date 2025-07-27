@@ -18,7 +18,7 @@ export interface NodeRegistrationData {
 }
 
 export interface NetworkConfig {
-  name: 'mainnet' | 'testnet' | 'regtest';
+  name: 'mainnet' | 'testnet4' | 'regtest';
   displayName: string;
   description: string;
 }
@@ -695,10 +695,10 @@ class AlbyAuthService {
         displayName: 'Bitcoin Mainnet',
         description: 'Production Bitcoin network'
       },
-      testnet: {
-        name: 'testnet',
-        displayName: 'Bitcoin Testnet',
-        description: 'Bitcoin test network'
+      testnet4: {
+        name: 'testnet4',
+        displayName: 'Bitcoin Testnet4',
+        description: 'Bitcoin test network (testnet4)'
       },
       regtest: {
         name: 'regtest',
@@ -722,9 +722,9 @@ class AlbyAuthService {
         description: 'Bitcoin Regtest for Lightning Network development (Recommended for testing)'
       },
       {
-        name: 'testnet',
-        displayName: 'Bitcoin Testnet',
-        description: 'Bitcoin test network'
+        name: 'testnet4',
+        displayName: 'Bitcoin Testnet4',
+        description: 'Bitcoin test network (testnet4)'
       },
       {
         name: 'mainnet',
@@ -742,7 +742,7 @@ class AlbyAuthService {
         // Handle migration from old 'mutinynet' to new 'regtest'
         if (storedNetwork === 'mutinynet') {
           this.setNetwork('regtest');
-        } else if (['mainnet', 'testnet', 'regtest'].includes(storedNetwork)) {
+        } else if (['mainnet', 'testnet4', 'regtest'].includes(storedNetwork)) {
           this.setNetwork(storedNetwork as NetworkConfig['name']);
         } else {
           // Default to regtest for any unknown network
