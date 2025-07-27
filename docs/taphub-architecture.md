@@ -9,21 +9,21 @@ TapHub is a marketplace for Lightning Network Taproot Assets trading, enabling u
 ```mermaid
 graph TB
     subgraph "TapHub Platform"
-        WEB[Web Frontend - Marketplace UI]
-        API[TapHub API - Node Registry]
-        MONITOR[Blockchain Monitor - Channel Detection]
-        DB[(Database - Node Registry & Asset Listings)]
+        WEB[Web Frontend<br/>Marketplace UI]
+        API[TapHub API<br/>Node Registry]
+        MONITOR[Blockchain Monitor<br/>Channel Detection]
+        DB[(Database<br/>Node Registry & Asset Listings)]
     end
 
     subgraph "Lightning Network"
-        ALICE[Alice Node - Has Sats, Wants Assets]
-        BOB[Bob Node - Edge Node Has BobBux]
-        NODE_C[Node C - Has USD Token @ 95 sats/unit]
+        ALICE[Alice Node<br/>Has Sats, Wants Assets]
+        BOB[Bob Node<br/>Edge Node Has BobBux]
+        NODE_C[Node C<br/>Has USD Token @ 95 sats/unit]
     end
 
     subgraph "Blockchain"
-        BTC[Bitcoin Blockchain - Channel Opens]
-        TAP[Taproot Assets - Asset Transfers]
+        BTC[Bitcoin Blockchain<br/>Channel Opens]
+        TAP[Taproot Assets<br/>Asset Transfers]
     end
 
     ALICE -.->|1. Browse Marketplace| WEB
