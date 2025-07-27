@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/bitcoin-coder-bob/TapHub/rfq"
 	// prv "github.com/JoltzRewards/lightning-terminal-private/litrpc"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -66,6 +67,11 @@ func main() {
 	fmt.Printf("lndMacaroonPath: %s\n", lndMacaroonPath)
 	fmt.Printf("network: %s\n", network)
 
+	oracle, err := NewOracle()
+	if err != nil {
+		panic(err)
+	}
+
 	tapConn, err := setupNodeConn(rpcServerTap, tapMacaroonPath, tapTlsCertPath, "", "")
 	if err != nil {
 		fmt.Println("error setting up tap connection: ", err)
@@ -94,8 +100,7 @@ func main() {
 
 	uc := universerpc.NewUniverseClient(tapConn)
 
-
-	apiHandler, err := api.New(ln, tc, uc)
+	apiHandler, err := api.New(ln, tc, uc, oracle.ProxyListenAddress, oracle.ServiceListenAddress)
 	if err != nil {
 		fmt.Println("error setting up api: ", err)
 		return
@@ -210,4 +215,25 @@ func setupNodeConn(host string, macPath string, tlsCertPath string, macHex strin
 	}
 
 	return conn, nil
+}
+
+func NewOracle() (*rfq.MarketDataConfig, error) {
+	orc := &rfq.MarketDataConfig{
+		PriceDataUrl:         "https://api.bitpreco.com/btc-brl/ticker",
+		ServiceListenAddress: "127.0.0.1:8095",
+		DesiredAssetIds:      rfq.StringSlice{}, // need to pass an asset id that the rfq will recognize
+		Ticker:               "BobBux",
+		BtcAssetId:           "0000000000000000000000000000000000000000000000000000000000000000",
+		DecimalDisplay:       8,
+		MaxAssetTradeAmount:  120_000_000_000,
+		ExchangeSpreadBips:   151,
+		JoltzFeeBips:         0,
+	}
+
+	err := orc.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	return orc, nil
 }

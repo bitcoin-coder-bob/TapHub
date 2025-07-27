@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/lightninglabs/taproot-assets/rfq"
+
 	"github.com/lightninglabs/taproot-assets/taprpc/universerpc"
 
 	"github.com/lightninglabs/taproot-assets/taprpc"
@@ -17,12 +19,13 @@ type proxy struct {
 	proxy *httputil.ReverseProxy
 }
 type Handler struct {
-	oracleProxy *proxy
 	// litRpcURI on-demand for account-level client connections.
 	litRpcURI       string
 	lightningClient lnrpc.LightningClient
 	tapClient       taprpc.TaprootAssetsClient
 	universeClient  universerpc.UniverseClient
+	oracleProxy     *proxy
+	oracle          *rfq.RpcPriceOracle
 }
 
 func newProxy(target string, prefix string) (*proxy, error) {
@@ -50,14 +53,22 @@ func newProxy(target string, prefix string) (*proxy, error) {
 	return &proxy{p}, nil
 }
 
-func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsClient, universeClient universerpc.UniverseClient) (*Handler, error) {
-	// o, err := newProxy("https://"+oracleWeb, "/v1/oracle/proxy")
-	// if err != nil {
-	// 	return nil, err
-	// }
+func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsClient, universeClient universerpc.UniverseClient, oracleWeb, oracle string) (*Handler, error) {
+
+	o, err := newProxy("https://"+oracleWeb, "/v1/oracle/proxy")
+	if err != nil {
+		return nil, err
+	}
+
+	orc, err := rfq.NewRpcPriceOracle("rfqrpc://"+oracle, false)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Handler{
-		// oracleProxy:     o,
+		oracleProxy: o,
+		oracle:      orc,
+
 		lightningClient: lightningClient,
 		tapClient:       tapClient,
 		universeClient:  universeClient,
