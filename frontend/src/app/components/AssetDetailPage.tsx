@@ -101,7 +101,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
       setIsDetectingChannel(true);
       setError(null);
 
-      const response = await fetch('/api/detect-channel', {
+      const response = await fetch('/api/detectChannels', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
