@@ -212,7 +212,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
             </button>
             <button
               className="px-4 py-2 border border-border hover:bg-accent rounded-lg transition-colors"
-              onClick={() => onNavigate("asset-discovery")}
+              onClick={() => onNavigate("discover")}
             >
               Back to Discovery
             </button>
@@ -233,7 +233,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
           <p className="text-muted-foreground mb-6">{error || 'Asset not found'}</p>
           <button
             className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
-            onClick={() => onNavigate("asset-discovery")}
+            onClick={() => onNavigate("discover")}
           >
             Back to Assets
           </button>
@@ -248,7 +248,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Back Button */}
       <button
-        onClick={() => onNavigate("asset-discovery")}
+        onClick={() => onNavigate("discover")}
         className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
