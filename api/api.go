@@ -65,6 +65,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux.HandleFunc("/detectChannels", h.DetectChannels)
 	mux.HandleFunc("/verifyMessage", h.VerifyMessage)
 	mux.HandleFunc("/getNodeAssets", h.GetNodeAssets)
+	mux.HandleFunc("/generateNWC", h.GenerateNWC)
 	mux.ServeHTTP(w, r)
 }
 

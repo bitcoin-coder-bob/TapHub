@@ -1,9 +1,12 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/lightninglabs/taproot-assets/taprpc"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -260,5 +263,109 @@ func (h *Handler) GetNodeAssets(w http.ResponseWriter, r *http.Request) {
 		Assets:     assets,
 		Count:      len(assets),
 		Error:      "",
+	})
+}
+
+func (h *Handler) GenerateNWC(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("inside generate NWC\n")
+
+	var req struct {
+		BudgetMsat  *int64 `json:"budget_msat,omitempty"`
+		ExpiryUnix  *int64 `json:"expiry_unix,omitempty"`
+		Description string `json:"description,omitempty"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		// If no body provided, use defaults
+		req.BudgetMsat = nil
+		req.ExpiryUnix = nil
+		req.Description = "TapHub NWC Connection"
+	}
+
+	ctx := r.Context()
+
+	// Get the current node's information
+	nodeInfo, err := h.lightningClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   fmt.Sprintf("error getting node info: %s", err.Error()),
+		})
+		return
+	}
+
+	// Generate a random secret for the NWC connection
+	secretBytes := make([]byte, 32)
+	_, err = rand.Read(secretBytes)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   fmt.Sprintf("error generating secret: %s", err.Error()),
+		})
+		return
+	}
+	secret := hex.EncodeToString(secretBytes)
+
+	// Set default values if not provided
+	var budgetMsat int64 = 100000000 // 100,000 sats default
+	if req.BudgetMsat != nil {
+		budgetMsat = *req.BudgetMsat
+	}
+
+	var expiryUnix int64
+	if req.ExpiryUnix != nil {
+		expiryUnix = *req.ExpiryUnix
+	} else {
+		// Default to 30 days from now
+		expiryUnix = time.Now().AddDate(0, 0, 30).Unix()
+	}
+
+	// Create the NWC URI
+	// Format: nostr+walletconnect://<public_key>?relay=<relay_url>&secret=<secret>
+	nwcURI := fmt.Sprintf("nostr+walletconnect://%s?relay=wss://relay.getalby.com&secret=%s",
+		nodeInfo.IdentityPubkey, secret)
+
+	// Create a more detailed NWC connection object
+	nwcConnection := map[string]interface{}{
+		"uri":         nwcURI,
+		"public_key":  nodeInfo.IdentityPubkey,
+		"secret":      secret,
+		"relay":       "wss://relay.getalby.com",
+		"budget_msat": budgetMsat,
+		"expiry_unix": expiryUnix,
+		"description": req.Description,
+		"node_alias":  nodeInfo.Alias,
+		"created_at":  time.Now().Unix(),
+		"expires_at":  time.Unix(expiryUnix, 0).Format(time.RFC3339),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(struct {
+		Success  bool                   `json:"success"`
+		NWC      map[string]interface{} `json:"nwc"`
+		NodeInfo map[string]interface{} `json:"node_info"`
+		Error    string                 `json:"error"`
+	}{
+		Success: true,
+		NWC:     nwcConnection,
+		NodeInfo: map[string]interface{}{
+			"alias":           nodeInfo.Alias,
+			"identity_pubkey": nodeInfo.IdentityPubkey,
+			"version":         nodeInfo.Version,
+			"network":         nodeInfo.Chains[0].Network,
+		},
+		Error: "",
 	})
 }
