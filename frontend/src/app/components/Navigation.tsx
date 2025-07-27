@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, Wifi, History } from "lucide-react";
+import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, History, RefreshCw } from "lucide-react";
 
 import { AlbyUser, albyAuth, ConnectionState } from "../services/albyAuth";
 // import Image from "next/image";
@@ -37,9 +37,12 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (event: MouseEvent) => {
       if (isUserDropdownOpen) {
-        setIsUserDropdownOpen(false);
+        const target = event.target as Element;
+        if (target && !target.closest('[data-dropdown]')) {
+          setIsUserDropdownOpen(false);
+        }
       }
     };
 
@@ -87,33 +90,33 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   ];
 
   return (
-    <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <div
-            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
             onClick={() => onNavigate("home")}
           >
             <div className="w-8 h-8 white rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-xl">Tap</span>
-              <span className="text-xl bg-[#ff8c00] text-black px-2 py-1 rounded-lg">Hub</span>
+              <span className="text-xl font-semibold">Tap</span>
+              <span className="text-xl font-semibold bg-[#ff8c00] text-black px-2.5 py-1 rounded-lg">Hub</span>
             </div>
             {/* <Image src="/Tap.png" alt="Taphub" width={32} height={32} /> */}
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     currentPage === item.id
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -127,11 +130,11 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
           </div>
 
           {/* Auth Section */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-6 flex-shrink-0">
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-6">
                 {/* Connection Status Indicator */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-lg">
                   <Circle
                     className={`w-2.5 h-2.5 fill-current ${
                       connectionState === 'connected'
@@ -158,30 +161,30 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                       {isReconnecting ? (
                         <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <Wifi className="w-3 h-3" />
+                        <RefreshCw className="w-3 h-3" />
                       )}
                     </button>
                   )}
                 </div>
                 {/* Balance Display */}
                 {balance !== null ? (
-                  <div className="flex items-center gap-1 px-3 py-2 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400 border border-green-500/20">
                     <Wallet className="w-4 h-4" />
                     <span className="text-sm font-medium">
                       {albyAuth.formatBalance(balance)}
                     </span>
                   </div>
                 ) : balanceError ? (
-                  <div className="flex items-center gap-1 px-3 py-2 bg-red-500/10 rounded-lg text-red-600 dark:text-red-400">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 rounded-lg text-red-600 dark:text-red-400 border border-red-500/20">
                     <Wallet className="w-4 h-4" />
                     <span className="text-sm">Balance unavailable</span>
                   </div>
                 ) : null}
                 
-                <div className="relative">
+                <div className="relative" data-dropdown>
                   <button
                     onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer border border-primary/20"
                   >
                     <User className="w-4 h-4 text-primary" />
                     <span className="text-sm">
@@ -190,7 +193,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                   </button>
                   
                   {isUserDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50">
+                    <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50" data-dropdown>
                       <div className="py-1">
                         <button
                           onClick={() => {
@@ -231,7 +234,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
             ) : (
               <button
                 onClick={() => onNavigate("login")}
-                className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm transition-colors"
+                className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors shadow-sm"
               >
                 Sign In
               </button>
@@ -308,7 +311,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                             {isReconnecting ? (
                               <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                             ) : (
-                              <Wifi className="w-3 h-3" />
+                              <RefreshCw className="w-3 h-3" />
                             )}
                           </button>
                         )}
