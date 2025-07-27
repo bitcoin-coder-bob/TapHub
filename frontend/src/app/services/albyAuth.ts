@@ -41,6 +41,13 @@ export interface QueuedOperation {
   reject: (error: unknown) => void;
 }
 
+export interface RelayInfo {
+  url: string;
+  isActive: boolean;
+  lastConnected?: Date;
+  failureCount: number;
+}
+
 class AlbyAuthService {
   private static instance: AlbyAuthService;
   private currentUser: AlbyUser | null = null;
@@ -59,6 +66,9 @@ class AlbyAuthService {
   private operationQueue: QueuedOperation[] = [];
   private isReconnecting = false;
   private connectionStateListeners: ((state: ConnectionState) => void)[] = [];
+  private relays: RelayInfo[] = [];
+  private currentRelayIndex = 0;
+  private maxRelayRetries = 3;
 
   private constructor() {
     this.initializeNetwork();
@@ -77,9 +87,12 @@ class AlbyAuthService {
     try {
       this.setConnectionState('connecting');
       
-      // Initialize both LN and NWC clients
+      // Parse multiple relay URLs from credentials
+      this.parseRelayUrls(credentials);
+      
+      // Initialize both LN and NWC clients with multiple relay support
       this.lnClient = new LN(credentials);
-      this.nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: credentials });
+      this.nwcClient = await this.createNWCClientWithFallback(credentials);
       
       // Test the connection with a simple message signing
       const testMessage = `TapHub auth test - ${Date.now()}`;
@@ -248,13 +261,10 @@ class AlbyAuthService {
       throw new Error('Missing permission: get_balance. Please reconnect with balance reading permissions.');
     }
 
-    try {
-      const balance = await this.nwcClient.getBalance();
+    return this.executeWithRelayFallback(async () => {
+      const balance = await this.nwcClient!.getBalance();
       return balance.balance || 0;
-    } catch (error) {
-      console.error('Failed to get balance:', error);
-      throw new Error('Failed to retrieve wallet balance');
-    }
+    }, 'getBalance');
   }
 
   // Format balance in sats with comma separators
@@ -300,16 +310,9 @@ class AlbyAuthService {
       return this.queueOperation('payment', () => this.lnClient!.pay(invoice));
     }
 
-    try {
-      return await this.lnClient.pay(invoice);
-    } catch (error) {
-      // If payment fails due to connection issue, try to reconnect
-      if (this.isConnectionError(error)) {
-        this.handleDisconnection();
-        return this.queueOperation('payment', () => this.lnClient!.pay(invoice));
-      }
-      throw error;
-    }
+    return this.executeWithRelayFallback(async () => {
+      return await this.lnClient!.pay(invoice);
+    }, 'payment');
   }
 
   // Request a payment
@@ -333,6 +336,158 @@ class AlbyAuthService {
       localStorage.removeItem('taphub_user');
       localStorage.removeItem('taphub_nwc_credentials');
     }
+  }
+
+  // Parse multiple relay URLs from NWC connection string
+  private parseRelayUrls(credentials: string): void {
+    try {
+      const url = new URL(credentials);
+      const searchParams = new URLSearchParams(url.search);
+      
+      // Get all relay parameters (relay, relay1, relay2, etc.)
+      const relayUrls: string[] = [];
+      
+      // Get primary relay
+      const primaryRelay = searchParams.get('relay');
+      if (primaryRelay) {
+        relayUrls.push(primaryRelay);
+      }
+      
+      // Get additional relays (relay1, relay2, etc.)
+      let i = 1;
+      while (i <= 10) { // Support up to 10 relays
+        const relayParam = searchParams.get(`relay${i}`);
+        if (relayParam) {
+          relayUrls.push(relayParam);
+        } else {
+          break; // No more relays
+        }
+        i++;
+      }
+      
+      // If no relays found, try to extract from the credentials directly
+      if (relayUrls.length === 0) {
+        console.warn('No relay URLs found in NWC connection string, using default');
+        relayUrls.push('wss://relay.getalby.com/v1'); // Default fallback
+      }
+      
+      // Initialize relay info array
+      this.relays = relayUrls.map(url => ({
+        url,
+        isActive: false,
+        failureCount: 0
+      }));
+      
+      this.currentRelayIndex = 0;
+      console.log(`Parsed ${this.relays.length} relay URLs:`, this.relays.map(r => r.url));
+    } catch (error) {
+      console.error('Failed to parse relay URLs:', error);
+      // Fallback to default relay
+      this.relays = [{
+        url: 'wss://relay.getalby.com/v1',
+        isActive: false,
+        failureCount: 0
+      }];
+      this.currentRelayIndex = 0;
+    }
+  }
+
+  // Create NWC client with fallback relay support
+  private async createNWCClientWithFallback(credentials: string): Promise<nwc.NWCClient> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < this.maxRelayRetries && attempt < this.relays.length; attempt++) {
+      const relayInfo = this.relays[this.currentRelayIndex];
+      
+      try {
+        console.log(`Attempting to connect to relay ${this.currentRelayIndex + 1}/${this.relays.length}: ${relayInfo.url}`);
+        
+        // Create modified credentials with current relay
+        const modifiedCredentials = this.createCredentialsWithRelay(credentials, relayInfo.url);
+        const client = new nwc.NWCClient({ nostrWalletConnectUrl: modifiedCredentials });
+        
+        // Test the connection
+        await client.getInfo();
+        
+        // Success! Mark relay as active
+        relayInfo.isActive = true;
+        relayInfo.lastConnected = new Date();
+        relayInfo.failureCount = 0;
+        
+        console.log(`Successfully connected to relay: ${relayInfo.url}`);
+        return client;
+        
+      } catch (error) {
+        lastError = error as Error;
+        relayInfo.isActive = false;
+        relayInfo.failureCount++;
+        
+        console.warn(`Failed to connect to relay ${relayInfo.url}:`, error);
+        
+        // Move to next relay
+        this.currentRelayIndex = (this.currentRelayIndex + 1) % this.relays.length;
+      }
+    }
+    
+    // All relays failed
+    throw new Error(`Failed to connect to any of ${this.relays.length} relays. Last error: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  // Create credentials string with specific relay URL
+  private createCredentialsWithRelay(originalCredentials: string, relayUrl: string): string {
+    try {
+      const url = new URL(originalCredentials);
+      const searchParams = new URLSearchParams(url.search);
+      
+      // Replace the relay parameter with the specific relay URL
+      searchParams.set('relay', relayUrl);
+      
+      // Remove other relay parameters
+      for (let i = 1; i <= 10; i++) {
+        searchParams.delete(`relay${i}`);
+      }
+      
+      url.search = searchParams.toString();
+      return url.toString();
+    } catch (error) {
+      console.error('Failed to create credentials with relay:', error);
+      return originalCredentials; // Fallback to original
+    }
+  }
+
+  // Get current relay information
+  getCurrentRelay(): RelayInfo | null {
+    return this.relays[this.currentRelayIndex] || null;
+  }
+
+  // Get all relay information
+  getRelays(): RelayInfo[] {
+    return [...this.relays];
+  }
+
+  // Get relay performance statistics
+  getRelayStats(): { activeRelays: number; totalRelays: number; currentRelay: string; stats: RelayInfo[] } {
+    const activeRelays = this.relays.filter(r => r.isActive).length;
+    const currentRelay = this.relays[this.currentRelayIndex]?.url || 'none';
+    
+    console.log('Relay Performance Stats:', {
+      activeRelays,
+      totalRelays: this.relays.length,
+      currentRelay,
+      relayDetails: this.relays.map(r => ({
+        url: r.url,
+        isActive: r.isActive,
+        failureCount: r.failureCount,
+        lastConnected: r.lastConnected?.toISOString()
+      }))
+    });
+    
+    return {
+      activeRelays,
+      totalRelays: this.relays.length,
+      currentRelay,
+      stats: [...this.relays]
+    };
   }
 
   // Extract pubkey from NWC credentials (simplified)
@@ -453,7 +608,7 @@ class AlbyAuthService {
       try {
         const user = JSON.parse(userStr);
         // Try to reinitialize clients from stored credentials
-        this.reinitializeClients();
+        this.reinitializeClients().catch(console.error);
         return user;
       } catch (error) {
         console.error('Failed to parse user from storage:', error);
@@ -464,12 +619,15 @@ class AlbyAuthService {
   }
 
   // Reinitialize clients from stored credentials
-  private reinitializeClients(): void {
+  private async reinitializeClients(): Promise<void> {
     const credentials = this.getStoredCredentials();
     if (credentials) {
       try {
+        // Parse relays from stored credentials
+        this.parseRelayUrls(credentials);
+        
         this.lnClient = new LN(credentials);
-        this.nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: credentials });
+        this.nwcClient = await this.createNWCClientWithFallback(credentials);
         // Re-check permissions after reinitializing
         this.checkPermissions().catch(console.error);
       } catch (error) {
@@ -630,9 +788,9 @@ class AlbyAuthService {
       await new Promise(resolve => setTimeout(resolve, backoffDelay));
       
       try {
-        // Try to reinitialize the connection
+        // Try to reinitialize the connection with relay fallback
         this.lnClient = new LN(credentials);
-        this.nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: credentials });
+        this.nwcClient = await this.createNWCClientWithFallback(credentials);
         
         // Test the connection
         await this.nwcClient.getInfo();
@@ -741,14 +899,74 @@ class AlbyAuthService {
       throw new Error('Missing permission: list_transactions. Please reconnect with transaction history permissions.');
     }
 
-    try {
-      const response = await this.nwcClient.listTransactions({});
+    return this.executeWithRelayFallback(async () => {
+      const response = await this.nwcClient!.listTransactions({});
       // Return last 20 transactions, sorted by creation date (newest first)
       return response.transactions?.slice(0, 20) || [];
-    } catch (error) {
-      console.error('Failed to get transactions:', error);
-      throw new Error('Failed to retrieve transaction history');
+    }, 'getTransactions');
+  }
+
+  // Execute operation with relay fallback
+  private async executeWithRelayFallback<T>(
+    operation: () => Promise<T>, 
+    operationType: string
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    let attempts = 0;
+    
+    while (attempts < this.maxRelayRetries && attempts < this.relays.length) {
+      const currentRelay = this.relays[this.currentRelayIndex];
+      
+      try {
+        console.log(`Executing ${operationType} with relay: ${currentRelay.url}`);
+        const result = await operation();
+        
+        // Success! Update relay performance
+        currentRelay.isActive = true;
+        currentRelay.lastConnected = new Date();
+        currentRelay.failureCount = Math.max(0, currentRelay.failureCount - 1);
+        
+        return result;
+        
+      } catch (error) {
+        lastError = error as Error;
+        attempts++;
+        
+        // Mark relay as having issues
+        currentRelay.isActive = false;
+        currentRelay.failureCount++;
+        
+        console.warn(`${operationType} failed with relay ${currentRelay.url} (attempt ${attempts}/${this.maxRelayRetries}):`, error);
+        
+        // If this is a connection error and we have more relays to try
+        if (this.isConnectionError(error) && attempts < this.maxRelayRetries && attempts < this.relays.length) {
+          // Switch to next relay
+          this.currentRelayIndex = (this.currentRelayIndex + 1) % this.relays.length;
+          
+          // Reinitialize client with new relay
+          const credentials = this.getStoredCredentials();
+          if (credentials) {
+            try {
+              this.nwcClient = await this.createNWCClientWithFallback(credentials);
+              this.lnClient = new LN(credentials);
+              continue; // Try again with new relay
+            } catch (reinitError) {
+              console.error('Failed to reinitialize with new relay:', reinitError);
+            }
+          }
+        }
+        
+        // If it's not a connection error, don't try other relays
+        if (!this.isConnectionError(error)) {
+          break;
+        }
+      }
     }
+    
+    // All attempts failed, trigger disconnection handling
+    this.handleDisconnection();
+    
+    throw lastError || new Error(`${operationType} failed after trying ${attempts} relays`);
   }
 
   // Helper to check if an error is connection-related
@@ -757,7 +975,9 @@ class AlbyAuthService {
     return errorMessage.includes('connection') || 
            errorMessage.includes('network') || 
            errorMessage.includes('timeout') ||
-           errorMessage.includes('relay');
+           errorMessage.includes('relay') ||
+           errorMessage.includes('websocket') ||
+           errorMessage.includes('nostr');
   }
 }
 
