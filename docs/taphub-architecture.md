@@ -7,21 +7,21 @@ TapHub is a marketplace for Lightning Network Taproot Assets trading, enabling u
 ## Architecture Diagram
 
 ```mermaid
-graph TB
-    subgraph TapHub_Platform
+flowchart TB
+    subgraph Platform[TapHub Platform]
         WEB[Web Frontend]
         API[TapHub API]
         MONITOR[Blockchain Monitor]
         DB[(Database)]
     end
 
-    subgraph Lightning_Network
+    subgraph Network[Lightning Network]
         ALICE[Alice Node]
         BOB[Bob Node]
         NODE_C[Node C]
     end
 
-    subgraph Blockchain
+    subgraph Chain[Blockchain]
         BTC[Bitcoin Blockchain]
         TAP[Taproot Assets]
     end
