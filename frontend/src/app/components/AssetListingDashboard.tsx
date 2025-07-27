@@ -1,5 +1,6 @@
 import { Plus, Package, Zap, DollarSign, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { auth } from "../services/auth";
 
 interface Asset {
   id: string;
@@ -18,6 +19,7 @@ interface AssetListingDashboardProps {
 export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardProps) {
   const [userAssets, setUserAssets] = useState<Asset[]>([]);
   const [showListingForm, setShowListingForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [listingForm, setListingForm] = useState({
     name: "",
     symbol: "",
@@ -27,25 +29,73 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     status: "Draft" as "Active" | "Draft"
   });
 
-  // Load assets from localStorage on component mount
-  useEffect(() => {
-    const savedAssets = localStorage.getItem('tapHubAssets');
-    if (savedAssets) {
-      try {
-        setUserAssets(JSON.parse(savedAssets));
-      } catch (error) {
-        console.error('Error loading assets from localStorage:', error);
+  // Get the current user's pubkey
+  const getNodePubkey = (): string => {
+    const currentUser = auth.getCurrentUser();
+    if (!currentUser || !currentUser.pubkey) {
+      throw new Error('No authenticated node runner found');
+    }
+    return currentUser.pubkey;
+  };
+
+  // Fetch assets from MongoDB on component mount
+  const fetchUserAssets = async () => {
+    setIsLoading(true);
+    try {
+      const nodePubkey = getNodePubkey();
+      const response = await fetch(`/api/verfiedNodes/getNodeAssets?nodePubkey=${nodePubkey}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserAssets(data.assets || []);
+      } else if (response.status === 404) {
+        // No assets found for this node, start with empty array
+        setUserAssets([]);
+      } else {
+        console.error('Failed to fetch user assets');
         setUserAssets([]);
       }
+    } catch (error) {
+      console.error('Error fetching user assets:', error);
+      setUserAssets([]);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Save assets to MongoDB using existing saveNodeAssets endpoint
+  const saveUserAssets = async (assets: Asset[]) => {
+    try {
+      const nodePubkey = getNodePubkey();
+      const response = await fetch('/api/verfiedNodes/saveNodeAssets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodePubkey: nodePubkey,
+          assets: assets
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save user assets');
+        throw new Error('Failed to save assets');
+      }
+
+      const data = await response.json();
+      console.log('Assets saved successfully:', data.message);
+    } catch (error) {
+      console.error('Error saving user assets:', error);
+      throw error;
+    }
+  };
+
+  // Load assets from MongoDB on component mount
+  useEffect(() => {
+    fetchUserAssets();
   }, []);
 
-  // Save assets to localStorage whenever userAssets changes
-  useEffect(() => {
-    localStorage.setItem('tapHubAssets', JSON.stringify(userAssets));
-  }, [userAssets]);
-
-  const handleCreateListing = () => {
+  const handleCreateListing = async () => {
     if (!listingForm.name || !listingForm.symbol || !listingForm.price || !listingForm.available) {
       alert('Please fill in all required fields');
       return;
@@ -61,31 +111,62 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
       status: listingForm.status
     };
 
-    setUserAssets(prev => [...prev, newListingAsset]);
-    setShowListingForm(false);
-    setListingForm({
-      name: "",
-      symbol: "",
-      price: "",
-      priceUnit: "BTC",
-      available: "",
-      status: "Draft"
-    });
-  };
-
-  const handleDeleteAsset = (id: string) => {
-    if (confirm('Are you sure you want to delete this asset?')) {
-      setUserAssets(prev => prev.filter(asset => asset.id !== id));
+    const updatedAssets = [...userAssets, newListingAsset];
+    
+    try {
+      await saveUserAssets(updatedAssets);
+      setUserAssets(updatedAssets);
+      setShowListingForm(false);
+      setListingForm({
+        name: "",
+        symbol: "",
+        price: "",
+        priceUnit: "BTC",
+        available: "",
+        status: "Draft"
+      });
+    } catch (error) {
+      alert('Failed to save asset. Please try again.');
     }
   };
 
-  const handleEditAsset = (id: string) => {
+  const handleDeleteAsset = async (id: string) => {
+    if (confirm('Are you sure you want to delete this asset?')) {
+      const updatedAssets = userAssets.filter(asset => asset.id !== id);
+      
+      try {
+        await saveUserAssets(updatedAssets);
+        setUserAssets(updatedAssets);
+      } catch (error) {
+        alert('Failed to delete asset. Please try again.');
+      }
+    }
+  };
+
+  const handleEditAsset = async (id: string) => {
     // For now, just delete and let user add again
     // In a real implementation, you might want to show a form to edit price/quantity
     if (confirm('Edit will remove the current listing. You can add it again with new settings.')) {
-      setUserAssets(prev => prev.filter(asset => asset.id !== id));
+      const updatedAssets = userAssets.filter(asset => asset.id !== id);
+      
+      try {
+        await saveUserAssets(updatedAssets);
+        setUserAssets(updatedAssets);
+      } catch (error) {
+        alert('Failed to edit asset. Please try again.');
+      }
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Loading your assets...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
