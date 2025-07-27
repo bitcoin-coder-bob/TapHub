@@ -63,7 +63,7 @@ func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsCl
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/detectChannels", h.DetectChannels)
-
+	mux.HandleFunc("/verifyMessage", h.VerifyMessage)
 	mux.ServeHTTP(w, r)
 }
 
