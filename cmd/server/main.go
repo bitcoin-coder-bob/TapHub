@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 
-	// prv "github.com/JoltzRewards/lightning-terminal-private/litrpc"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
 

@@ -16,8 +16,6 @@ import (
 
 	"github.com/lightninglabs/taproot-assets/rfqmath"
 
-	// prv "github.com/JoltzRewards/lightning-terminal-private/litrpc"
-
 	"github.com/lightninglabs/taproot-assets/rfq"
 	"github.com/lightninglabs/taproot-assets/taprpc"
 	"github.com/lightninglabs/taproot-assets/taprpc/tapchannelrpc"
@@ -201,7 +199,7 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 				return err
 			}
 			scid1 := lnwire.NewShortChanIDFromInt(ch.ChanId)
-			fmt.Printf("checking local bal before (depix): scid: %s chid: %d cp: %s  local bal: %d  remote bal: %d    asset bal:%d private: %t\n", scid1, ch.ChanId, ch.ChannelPoint, ch.LocalBalance, ch.RemoteBalance, customChannelJson.LocalBalance, ch.Private)
+			fmt.Printf("checking local bal before (asset): scid: %s chid: %d cp: %s  local bal: %d  remote bal: %d    asset bal:%d private: %t\n", scid1, ch.ChanId, ch.ChannelPoint, ch.LocalBalance, ch.RemoteBalance, customChannelJson.LocalBalance, ch.Private)
 		} else {
 			scid1 := lnwire.NewShortChanIDFromInt(ch.ChanId)
 
@@ -312,22 +310,22 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 	fmt.Printf("\nproposed hop: (scid): %d  chid: %d\n", scidToUse, eligibleAssetChannels[0])
 
 	ch, err := lc.ListChannels(context.Background(), &lnrpc.ListChannelsRequest{})
-	depixChid := uint64(0)
+	assetChid := uint64(0)
 	if err != nil {
 		fmt.Printf("error listing channels 2: %s\n", err.Error())
 		return err
 	}
 	for _, c := range ch.Channels {
 		if c.CustomChannelData != nil {
-			depixChid = c.ChanId
+			assetChid = c.ChanId
 			break
 		}
 	}
-	fmt.Printf("depix chid: %d\n", depixChid)
+	fmt.Printf("asset chid: %d\n", assetChid)
 	for htlcIndex, htlc := range payment.Htlcs {
 		route := htlc.Route
 		for hopIndex, hop := range route.Hops {
-			fmt.Printf("hop taken chid: %d pubkey:%s  depixChan: %t  htlcIndex: %d  hopIndex: %d\n", hop.ChanId, hop.PubKey, hop.ChanId == depixChid, htlcIndex, hopIndex)
+			fmt.Printf("hop taken chid: %d pubkey:%s  assetChan: %t  htlcIndex: %d  hopIndex: %d\n", hop.ChanId, hop.PubKey, hop.ChanId == assetChid, htlcIndex, hopIndex)
 			// if index == 1 {
 			// 	scid := lnwire.NewShortChanIDFromInt(hop.ChanId)
 			// 	fmt.Printf("hop taken scid: %s\n", scid.String())
@@ -397,7 +395,7 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 				fmt.Printf("error unmarshalling custom channel data after payment: %v\n", err)
 				return err
 			}
-			fmt.Printf("checking local bal after (depix): chid: %d   local bal: %d  remote bal: %d     asset bal:%d\n", ch.ChanId, ch.LocalBalance, ch.RemoteBalance, customChannelJson.LocalBalance)
+			fmt.Printf("checking local bal after (asset): chid: %d   local bal: %d  remote bal: %d     asset bal:%d\n", ch.ChanId, ch.LocalBalance, ch.RemoteBalance, customChannelJson.LocalBalance)
 		} else {
 			fmt.Printf("checking local bal after (sats):  chid: %d  local bal: %d   remote bal: %d\n", ch.ChanId, ch.LocalBalance, ch.RemoteBalance)
 		}
@@ -417,7 +415,6 @@ func SatsRateToAsset(rate rfqmath.BigIntFixedPoint, assetUnitsToGet, feeRate flo
 	fmt.Printf("unitsPerSat: %f\n", unitsPerSat)
 	unitsSwappedFor := assetUnitsToGet * unitsPerSat
 	fmt.Printf("unitsSwappedFor: %f\n", unitsSwappedFor)
-	// any fraction of a sat remainder joltz will collect
 	roundedSats := int(math.Floor(unitsSwappedFor))
 
 	return roundedSats

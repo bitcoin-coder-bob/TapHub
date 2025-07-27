@@ -18,8 +18,6 @@ import (
 
 	"github.com/lightninglabs/taproot-assets/rfqmath"
 
-	// prv "github.com/JoltzRewards/lightning-terminal-private/litrpc"
-
 	"github.com/lightninglabs/taproot-assets/rfq"
 	"github.com/lightninglabs/taproot-assets/taprpc"
 
@@ -296,7 +294,7 @@ func SwapAssetsToSats(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, r
 		rfqQuoteId = acceptedQuote.Id
 		quotedAssetAmt = acceptedQuote.AssetAmount
 		fmt.Printf("MATH CHECK: (interested spot) accepted quote AssetAmount: %d\n", acceptedQuote.AssetAmount)
-		// Double-check the depix balance of the account against this quoted amount (should typically be less than user input though).
+		// Double-check the asset balance of the account against this quoted amount (should typically be less than user input though).
 
 		fmt.Printf("MATH CHECK: BidAssetRate coefficient: %s   scale: %d\n", acceptedQuote.BidAssetRate.Coefficient, acceptedQuote.BidAssetRate.Scale)
 	case *rfqrpc.AddAssetSellOrderResponse_InvalidQuote:
@@ -321,12 +319,11 @@ func SwapAssetsToSats(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, r
 	}
 	fmt.Printf("MATH CHECK: created invoice with payment request (%s) for amount: %d\n", invoice.PaymentRequest, int64(satsToGet))
 
-	var swapDepixChanId uint64 = 0
+	var swapAssetChanId uint64 = 0
 
-	// swapDepixPeerScidAlias := uint64(0)
 	swapSatsPeerScidAlias := uint64(0)
 
-	// The string of the invoice we will pay with DePix
+	// The string of the invoice we will pay with asset
 	paymentReq := invoice.PaymentRequest
 	allChannels, err := lc.ListChannels(context.TODO(), &lnrpc.ListChannelsRequest{})
 	if err != nil {
@@ -338,12 +335,11 @@ func SwapAssetsToSats(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, r
 			if err := json.Unmarshal(c.CustomChannelData, &customData); err != nil {
 				return fmt.Errorf("error parsing custom channel data: %s", err.Error())
 			}
-			fmt.Printf("MATH CHECK: (during payment) depix channel id: %d  channel point: %s local bal (Depix): %d   remote bal (depix): %d   active: %t\n", c.ChanId, c.ChannelPoint, customData.LocalBalance, customData.RemoteBalance, c.Active)
+			fmt.Printf("MATH CHECK: (during payment) asset channel id: %d  channel point: %s local bal (asset): %d   remote bal (asset): %d   active: %t\n", c.ChanId, c.ChannelPoint, customData.LocalBalance, customData.RemoteBalance, c.Active)
 			if c.ChannelPoint == chosenAssetChannel.ChannelPoint {
-				// Set depix chan info.
-				swapDepixChanId = c.ChanId
-				fmt.Printf("swap depix chan id: %d\n", swapDepixChanId)
-				// swapDepixPeerScidAlias = c.PeerScidAlias
+				// Set asset chan info.
+				swapAssetChanId = c.ChanId
+				fmt.Printf("swap asset chan id: %d\n", swapAssetChanId)
 			}
 		} else {
 			if c.ChannelPoint == chosenSatsChannel.ChannelPoint {
@@ -366,7 +362,7 @@ func SwapAssetsToSats(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, r
 	}
 	pr := &routerrpc.SendPaymentRequest{
 		PaymentRequest:   paymentReq,
-		OutgoingChanIds:  []uint64{swapDepixChanId}, // the asset channel between joltz <-> market maker
+		OutgoingChanIds:  []uint64{swapAssetChanId},
 		AllowSelfPayment: true,
 		FeeLimitSat:      20000,
 		RouteHints: []*lnrpc.RouteHint{{
@@ -414,7 +410,6 @@ func SatsRateToAsset(rate rfqmath.BigIntFixedPoint, assetUnitsToGet, feeRate flo
 	fmt.Printf("unitsPerSat: %f\n", unitsPerSat)
 	unitsSwappedFor := assetUnitsToGet * unitsPerSat
 	fmt.Printf("unitsSwappedFor: %f\n", unitsSwappedFor)
-	// any fraction of a sat remainder joltz will collect
 	roundedSats := int(math.Floor(unitsSwappedFor))
 
 	return roundedSats
@@ -532,13 +527,13 @@ func setupNodeConn(host string, macPath string, tlsCertPath string, macHex strin
 
 // Track the stream of an asset payment, returning success status, amount of asset sent, and possible error
 func TrackSwapPayment(stream tapchannelrpc.TaprootAssetChannels_SendPaymentClient) (bool, uint64, error) {
-	depixSent := uint64(0)
+	assetUnitsSent := uint64(0)
 	for {
 		p, err := stream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				fmt.Printf("stream closed\n")
-				return depixSent > 0, depixSent, nil
+				return assetUnitsSent > 0, assetUnitsSent, nil
 			}
 			return false, 0, fmt.Errorf("error with stream tracking payment: %s", err.Error())
 		}
@@ -584,10 +579,10 @@ func TrackSwapPayment(stream tapchannelrpc.TaprootAssetChannels_SendPaymentClien
 				if err != nil {
 					return false, 0, fmt.Errorf("error unmarshaling custom channel data in payment: %s", err.Error())
 				}
-				depixSent = uint64(PaymentCustomChannelData.Balances[0].Amount)
-				fmt.Printf("MATH CHECK: (interested spot) exiting tracking payments since payment succeeded. depixSent: %d\n", depixSent)
+				assetUnitsSent = uint64(PaymentCustomChannelData.Balances[0].Amount)
+				fmt.Printf("MATH CHECK: (interested spot) exiting tracking payments since payment succeeded. assetUnitsSent: %d\n", assetUnitsSent)
 
-				return true, depixSent, nil
+				return true, assetUnitsSent, nil
 			}
 			if status == lnrpc.Payment_FAILED {
 				fmt.Printf("-- payment failed with num htlcs: %d\n", len(payment.Htlcs))

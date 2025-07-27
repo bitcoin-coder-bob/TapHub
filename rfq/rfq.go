@@ -55,7 +55,6 @@ type MarketDataConfig struct {
 	MaxAssetTradeAmount  int
 	DecimalDisplay       int
 	ExchangeSpreadBips   float64
-	JoltzFeeBips         int
 	DesiredAssetIds      StringSlice
 	Server               *grpc.Server
 	Listener             net.Listener
@@ -76,7 +75,6 @@ func NewOracle() (*MarketDataConfig, error) {
 		DecimalDisplay:       0,
 		MaxAssetTradeAmount:  10_000_000, // $100,000 USDT
 		ExchangeSpreadBips:   0,
-		JoltzFeeBips:         0,
 	}
 
 	err := orc.Start()
