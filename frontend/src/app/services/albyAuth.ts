@@ -906,6 +906,33 @@ class AlbyAuthService {
     }, 'getTransactions');
   }
 
+  // Create a Lightning invoice
+  async makeInvoice(amount: number, description?: string): Promise<{ invoice: string; payment_hash: string }> {
+    if (!this.nwcClient) {
+      throw new Error('NWC client not initialized. Please connect first.');
+    }
+
+    if (!this.hasPermission('make_invoice')) {
+      throw new Error('Missing permission: make_invoice. Please reconnect with invoice creation permissions.');
+    }
+
+    if (amount <= 0) {
+      throw new Error('Invoice amount must be greater than 0.');
+    }
+
+    return this.executeWithRelayFallback(async () => {
+      const response = await this.nwcClient!.makeInvoice({
+        amount: amount * 1000, // Convert sats to millisats
+        description: description || `TapHub Invoice - ${amount} sats`,
+        expiry: 3600 // 1 hour expiry
+      });
+      return {
+        invoice: response.invoice,
+        payment_hash: response.payment_hash
+      };
+    }, 'makeInvoice');
+  }
+
   // Execute operation with relay fallback
   private async executeWithRelayFallback<T>(
     operation: () => Promise<T>, 

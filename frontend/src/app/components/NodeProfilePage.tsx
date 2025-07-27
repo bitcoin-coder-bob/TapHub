@@ -1,17 +1,27 @@
-import { Zap, Shield, Network } from "lucide-react";
+import { Zap, Shield, Network, Copy, Plus, CheckCircle } from "lucide-react";
 import { albyAuth, AlbyUser } from "../services/albyAuth";
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 
 interface NodeProfilePageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function NodeProfilePage({
-  onNavigate: _,
+  onNavigate: _onNavigate,
 }: NodeProfilePageProps) {
   const [user, setUser] = useState<AlbyUser | null>(null);
   const [walletInfo, setWalletInfo] = useState<{ alias?: string; balance?: number; pubkey?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Invoice creation state
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [invoiceDescription, setInvoiceDescription] = useState("");
+  const [createdInvoice, setCreatedInvoice] = useState<{ invoice: string; payment_hash: string } | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -36,6 +46,64 @@ export function NodeProfilePage({
 
     loadUserData();
   }, []);
+
+  // Handle invoice creation
+  const handleCreateInvoice = async () => {
+    if (!invoiceAmount || isNaN(Number(invoiceAmount)) || Number(invoiceAmount) <= 0) {
+      alert('Please enter a valid amount in sats');
+      return;
+    }
+
+    setIsCreatingInvoice(true);
+    try {
+      const amount = Number(invoiceAmount);
+      const description = invoiceDescription || `Payment request from ${user?.alias || 'TapHub'}`;
+      
+      const invoice = await albyAuth.makeInvoice(amount, description);
+      setCreatedInvoice(invoice);
+      
+      // Generate QR code
+      const qrDataUrl = await QRCode.toDataURL(invoice.invoice, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeDataUrl(qrDataUrl);
+      
+    } catch (error) {
+      console.error('Failed to create invoice:', error);
+      alert(`Failed to create invoice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsCreatingInvoice(false);
+    }
+  };
+
+  // Handle copy to clipboard
+  const handleCopyInvoice = async () => {
+    if (!createdInvoice) return;
+    
+    try {
+      await navigator.clipboard.writeText(createdInvoice.invoice);
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to copy invoice:', error);
+      alert('Failed to copy invoice to clipboard');
+    }
+  };
+
+  // Reset invoice form
+  const resetInvoiceForm = () => {
+    setShowInvoiceForm(false);
+    setInvoiceAmount("");
+    setInvoiceDescription("");
+    setCreatedInvoice(null);
+    setQrCodeDataUrl(null);
+    setCopyStatus('idle');
+  };
 
   if (isLoading) {
     return (
@@ -174,6 +242,154 @@ export function NodeProfilePage({
           </div>
         </div>
       </div>
+
+      {/* Invoice Creation for Node Runners */}
+      {user.type === 'node' && albyAuth.isAuthenticated() && (
+        <div className="bg-card border border-border rounded-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl">Create Lightning Invoice</h2>
+            {!showInvoiceForm && !createdInvoice && (
+              <button
+                onClick={() => setShowInvoiceForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Invoice
+              </button>
+            )}
+          </div>
+
+          {showInvoiceForm && !createdInvoice && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Amount (sats)</label>
+                <input
+                  type="number"
+                  value={invoiceAmount}
+                  onChange={(e) => setInvoiceAmount(e.target.value)}
+                  placeholder="Enter amount in sats"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  min="1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Description (optional)</label>
+                <input
+                  type="text"
+                  value={invoiceDescription}
+                  onChange={(e) => setInvoiceDescription(e.target.value)}
+                  placeholder="Payment description"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreateInvoice}
+                  disabled={isCreatingInvoice || !invoiceAmount}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isCreatingInvoice ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  {isCreatingInvoice ? 'Creating...' : 'Create Invoice'}
+                </button>
+                <button
+                  onClick={resetInvoiceForm}
+                  className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {createdInvoice && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">Invoice Created Successfully!</span>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* QR Code */}
+                <div className="flex flex-col items-center space-y-3">
+                  <h3 className="text-lg font-medium">QR Code</h3>
+                  {qrCodeDataUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={qrCodeDataUrl} 
+                      alt="Invoice QR Code" 
+                      className="border border-border rounded-lg"
+                    />
+                  )}
+                  <p className="text-sm text-muted-foreground text-center">
+                    Scan with a Lightning wallet
+                  </p>
+                </div>
+
+                {/* Invoice Details */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-medium">Invoice Details</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Amount</p>
+                      <p className="font-mono">{invoiceAmount} sats</p>
+                    </div>
+                    {invoiceDescription && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Description</p>
+                        <p className="text-sm">{invoiceDescription}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm text-muted-foreground">Payment Hash</p>
+                      <p className="font-mono text-xs break-all">{createdInvoice.payment_hash}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Invoice String and Copy */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-medium">Lightning Invoice</h3>
+                <div className="relative">
+                  <textarea
+                    value={createdInvoice.invoice}
+                    readOnly
+                    className="w-full h-24 px-3 py-2 border border-border rounded-lg bg-accent/50 font-mono text-xs resize-none"
+                  />
+                  <button
+                    onClick={handleCopyInvoice}
+                    className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-background border border-border rounded text-xs hover:bg-accent transition-colors"
+                  >
+                    {copyStatus === 'copied' ? (
+                      <>
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={resetInvoiceForm}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Another Invoice
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Assets */}
       <div className="bg-card border border-border rounded-lg p-6">
