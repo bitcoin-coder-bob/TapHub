@@ -3,7 +3,7 @@ import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
-    const challenge = `TapHub Authentication Challenge: ${crypto.randomBytes(32).toString('hex')}`;
+    const challenge = `TapHub Authentication: ${crypto.randomBytes(16).toString('hex')}`;
     const timestamp = Date.now();
     
     return NextResponse.json({ 

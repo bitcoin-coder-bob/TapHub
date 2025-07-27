@@ -64,7 +64,7 @@ func (h *Handler) DetectChannels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) VerifyMessage(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("inside verify message\n")
+	fmt.Printf("=== VERIFY MESSAGE CALLED ===\n")
 	var req struct {
 		Message   string `json:"message"`
 		Signature string `json:"signature"`
@@ -82,6 +82,9 @@ func (h *Handler) VerifyMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("Received message: %s\n", req.Message)
+	fmt.Printf("Received signature: %s\n", req.Signature)
+
 	ctx := r.Context()
 	verifyMessageResp, err := h.lightningClient.VerifyMessage(ctx, &lnrpc.VerifyMessageRequest{
 		Msg:       []byte(req.Message),
@@ -97,6 +100,11 @@ func (h *Handler) VerifyMessage(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	fmt.Printf("=== LND VERIFICATION RESULT ===\n")
+	fmt.Printf("Valid: %v\n", verifyMessageResp.Valid)
+	fmt.Printf("Pubkey: %s\n", verifyMessageResp.Pubkey)
+	fmt.Printf("==============================\n")
 
 	if !verifyMessageResp.Valid {
 		// message is not valid - error case 2

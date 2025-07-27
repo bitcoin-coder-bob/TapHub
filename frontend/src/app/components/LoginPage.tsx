@@ -295,12 +295,12 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
                           <button
                             type="button"
                             onClick={() => navigator.clipboard.writeText(challenge)}
-                            className="text-xs text-primary hover:text-primary/80 transition-colors"
+                            className="text-xs text-primary hover:text-primary/80 hover:bg-primary/10 active:bg-primary/20 px-2 py-1 rounded transition-all duration-150 ease-in-out transform active:scale-95"
                           >
                             Copy
                           </button>
                         </div>
-                        <div className="font-mono text-xs bg-background p-2 rounded border break-all">
+                        <div className="font-mono text-xs bg-background p-2 rounded border break-all overflow-hidden max-h-24 overflow-y-auto leading-relaxed">
                           {challenge}
                         </div>
                       </div>
@@ -314,13 +314,13 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
                           <p>1. Copy the challenge message above</p>
                           <p>2. Run in your Lightning CLI:</p>
                           <div className="relative">
-                            <code className="block bg-blue-100 dark:bg-blue-900/30 p-1 rounded font-mono pr-12">
+                            <code className="block bg-blue-100 dark:bg-blue-900/30 p-1 rounded font-mono pr-12 break-all text-xs">
                               lncli signmessage &quot;{challenge}&quot;
                             </code>
                             <button
                               type="button"
                               onClick={() => navigator.clipboard.writeText(`lncli signmessage "${challenge}"`)}
-                              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/30 active:bg-blue-200 dark:active:bg-blue-800/40 px-2 py-1 rounded transition-all duration-150 ease-in-out transform active:scale-95"
                             >
                               Copy
                             </button>
