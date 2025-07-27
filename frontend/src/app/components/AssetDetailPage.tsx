@@ -40,14 +40,14 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showChannelCommand, setShowChannelCommand] = useState(false);
 
-  // Get user's Alby pubkey
+  // Get user's public key
   useEffect(() => {
     const user = auth.getCurrentUser();
     if (user && user.pubkey) {
       setUserPubkey(user.pubkey);
       setIsAuthenticated(true);
     } else {
-      setError("Please connect your Alby wallet to view asset details");
+      setError("Please connect your wallet to view asset details");
       setIsLoading(false);
     }
   }, []);
@@ -165,13 +165,13 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
           </div>
           <h3 className="mb-2">Wallet Connection Required</h3>
           <p className="text-muted-foreground mb-6">
-            Please connect your Alby wallet to view asset details and check channel status
+            Please connect your wallet to view asset details and check channel status
           </p>
           <button
             onClick={handleConnectWallet}
             className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
           >
-            Connect Alby Wallet
+            Connect Wallet
           </button>
         </div>
       </div>
@@ -376,7 +376,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Your Alby Public Key</p>
+            <p className="text-sm text-muted-foreground mb-1">Your Public Key</p>
             <p className="font-mono text-sm break-all bg-accent/50 p-2 rounded">
               {userPubkey}
             </p>
