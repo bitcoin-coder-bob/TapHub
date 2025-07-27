@@ -1,55 +1,72 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-interface TaprootAsset {
-  asset_genesis: {
-    asset_id: string;
-    name?: string;
-    meta_hash?: string;
-    amount: string;
-  };
+interface GoApiAsset {
+  asset_id: string;
+  name: string;
+  amount: string;
+  asset_type: string;
+  meta_hash: string;
+  version: string;
+  genesis_point?: string;
 }
 
-interface TaprootAssetsResponse {
-  assets?: TaprootAsset[];
+interface GoApiResponse {
+  success: boolean;
+  node_pubkey: string;
+  node_alias: string;
+  assets: GoApiAsset[];
+  count: number;
+  error: string;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const taprootAssetsHost = process.env.TAPROOT_ASSETS_HOST;
-    const taprootAssetsMacaroon = process.env.TAPROOT_ASSETS_MACAROON;
+    // Get the Go API host from environment variables, default to localhost:8082
+    const goApiHost = process.env.GO_API_HOST || 'localhost:8082';
+    
+    // Get node pubkey from query parameters or use default
+    const { searchParams } = new URL(request.url);
+    const nodePubkey = searchParams.get('nodePubkey') || 
+                      process.env.DEFAULT_NODE_PUBKEY || 
+                      '03a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab';
 
-    if (!taprootAssetsHost || !taprootAssetsMacaroon) {
-      return NextResponse.json(
-        { error: 'Taproot Assets configuration not found' },
-        { status: 500 }
-      );
-    }
-
-    // Fetch assets from taproot-assets node
-    const response = await fetch(`http://${taprootAssetsHost}/v1/taproot-assets/assets`, {
+    // Call our Go API's getNodeAssets endpoint
+    const response = await fetch(`http://${goApiHost}/getNodeAssets?nodePubkey=${nodePubkey}`, {
+      method: 'GET',
       headers: {
-        'Grpc-Metadata-macaroon': taprootAssetsMacaroon,
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Taproot Assets API responded with status: ${response.status}`);
+      throw new Error(`Go API responded with status: ${response.status}`);
     }
 
-    const data: TaprootAssetsResponse = await response.json();
+    const data: GoApiResponse = await response.json();
+    
+    if (!data.success) {
+      throw new Error(`Go API error: ${data.error}`);
+    }
     
     // Transform the response to match our frontend needs
-    const assets = data.assets?.map((asset: TaprootAsset) => ({
-      id: asset.asset_genesis.asset_id,
-      name: asset.asset_genesis.name || 'Unnamed Asset',
-      symbol: asset.asset_genesis.meta_hash ? 'META' : 'TOKEN',
-      totalSupply: asset.asset_genesis.amount,
-      available: asset.asset_genesis.amount, // Assuming all supply is available initially
-      status: 'Available'
-    })) || [];
+    const assets = data.assets.map((asset: GoApiAsset) => ({
+      id: asset.asset_id,
+      name: asset.name || 'Unnamed Asset',
+      symbol: asset.meta_hash ? 'META' : 'TOKEN',
+      totalSupply: asset.amount,
+      available: asset.amount, // Assuming all supply is available initially
+      status: 'Available',
+      assetType: asset.asset_type,
+      version: asset.version,
+      genesisPoint: asset.genesis_point
+    }));
 
-    return NextResponse.json({ assets });
+    return NextResponse.json({ 
+      assets,
+      nodePubkey: data.node_pubkey,
+      nodeAlias: data.node_alias,
+      totalCount: data.count
+    });
   } catch (error) {
     console.error('Error fetching available assets:', error);
     return NextResponse.json(

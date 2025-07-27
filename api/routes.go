@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/lightninglabs/taproot-assets/taprpc"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -146,5 +147,118 @@ func (h *Handler) VerifyMessage(w http.ResponseWriter, r *http.Request) {
 	}{
 		Pubkey: verifyMessageResp.Pubkey,
 		Error:  "",
+	})
+}
+
+func (h *Handler) GetNodeAssets(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("inside get node assets\n")
+
+	// Get node public key from query parameter
+	nodePubkey := r.URL.Query().Get("nodePubkey")
+	if nodePubkey == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   "nodePubkey parameter is required",
+		})
+		return
+	}
+
+	ctx := r.Context()
+
+	// Get node information (alias) from the Taproot Assets daemon
+	var nodeAlias string
+
+	// Get the TAPD info to get the node alias
+	tapdInfo, err := h.tapClient.GetInfo(ctx, &taprpc.GetInfoRequest{})
+	if err != nil {
+		fmt.Printf("warning: could not get TAPD info: %s\n", err.Error())
+		nodeAlias = "Unknown"
+	} else if tapdInfo.LndIdentityPubkey == nodePubkey {
+		// If the requested pubkey matches the TAPD node's LND pubkey, use its alias
+		nodeAlias = tapdInfo.NodeAlias
+	} else {
+		// Otherwise, search the Lightning Network channel graph for the node
+		channelGraph, err := h.lightningClient.DescribeGraph(ctx, &lnrpc.ChannelGraphRequest{IncludeUnannounced: true})
+		if err != nil {
+			fmt.Printf("warning: could not get channel graph to find node alias: %s\n", err.Error())
+			nodeAlias = "Unknown"
+		} else {
+			// Find the node in the channel graph to get its alias
+			for _, node := range channelGraph.Nodes {
+				if node.PubKey == nodePubkey {
+					nodeAlias = node.Alias
+					break
+				}
+			}
+			if nodeAlias == "" {
+				nodeAlias = "Unknown"
+			}
+		}
+	}
+
+	// Use the tapClient to list all assets
+	listAssetsResp, err := h.tapClient.ListAssets(ctx, &taprpc.ListAssetRequest{})
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   fmt.Sprintf("error listing assets: %s", err.Error()),
+		})
+		return
+	}
+
+	// Filter assets by node public key if needed
+	// Note: The tapClient.ListAssets returns assets owned by the current node
+	// If you need to get assets from a different node, you would need to:
+	// 1. Connect to that node's tapd instance, or
+	// 2. Use a different approach like querying the blockchain
+
+	// For now, we'll return all assets from the current node
+	// You can modify this logic based on your specific requirements
+	assets := []map[string]interface{}{}
+
+	for _, asset := range listAssetsResp.Assets {
+		assetInfo := map[string]interface{}{
+			"asset_id":   asset.AssetGenesis.AssetId,
+			"name":       asset.AssetGenesis.Name,
+			"amount":     asset.Amount,
+			"asset_type": asset.AssetGenesis.AssetType.String(),
+			"meta_hash":  asset.AssetGenesis.MetaHash,
+			"version":    asset.Version,
+		}
+
+		// Add genesis info if available
+		if asset.AssetGenesis.GenesisPoint != "" {
+			assetInfo["genesis_point"] = asset.AssetGenesis.GenesisPoint
+		}
+
+		assets = append(assets, assetInfo)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(struct {
+		Success    bool                     `json:"success"`
+		NodePubkey string                   `json:"node_pubkey"`
+		NodeAlias  string                   `json:"node_alias"`
+		Assets     []map[string]interface{} `json:"assets"`
+		Count      int                      `json:"count"`
+		Error      string                   `json:"error"`
+	}{
+		Success:    true,
+		NodePubkey: nodePubkey,
+		NodeAlias:  nodeAlias,
+		Assets:     assets,
+		Count:      len(assets),
+		Error:      "",
 	})
 }

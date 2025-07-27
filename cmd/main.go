@@ -39,16 +39,16 @@ var lndMacaroonPath string
 var network string
 
 func setFlags() {
-	flag.StringVar(&Port, "port", "8081", "")
+	flag.StringVar(&Port, "port", "8082", "")
 	flag.StringVar(&OracleRpcUri, "oracle_rpc_uri", "", "")
-	flag.StringVar(&rpcServerLnd, "rpcserverLnd", "127.0.0.1:10009", "rpc server of node")
-	flag.StringVar(&rpcServerTap, "rpcserverTap", "127.0.0.1:10009", "rpc server of node")
+	flag.StringVar(&rpcServerLnd, "rpcserverLnd", "127.0.0.1:10001", "rpc server of node")
+	flag.StringVar(&rpcServerTap, "rpcserverTap", "127.0.0.1:12030", "rpc server of node")
 
-	flag.StringVar(&tapTlsCertPath, "tap-tlscertPath", "/home/bob/.lit/tls.cert", "path to tap tls cert")
-	flag.StringVar(&tapMacaroonPath, "tap-macaroonPath", "/home/bob/.tapd/data/testnet4/admin.macaroon", "path to lit macaroon")
-	flag.StringVar(&lndtTlsCertPath, "lnd-tlscertPath", "/home/bob/.lnd/tls.cert", "path to lnd tls cert")
-	flag.StringVar(&lndMacaroonPath, "lnd-macaroonPath", "/home/bob/.lnd/data/chain/bitcoin/testnet4/admin.macaroon", "path to lnd macaroon")
-	flag.StringVar(&network, "network", "testnet4", "which lightning network")
+	flag.StringVar(&tapTlsCertPath, "tap-tlscertPath", "/Users/jonathangan/.polar/networks/1/volumes/tapd/dave-tap/tls.cert", "path to tap tls cert")
+	flag.StringVar(&tapMacaroonPath, "tap-macaroonPath", "/Users/jonathangan/.polar/networks/1/volumes/tapd/dave-tap/data/regtest/admin.macaroon", "path to lit macaroon")
+	flag.StringVar(&lndtTlsCertPath, "lnd-tlscertPath", "/Users/jonathangan/.polar/networks/1/volumes/lnd/alice/tls.cert", "path to lnd tls cert")
+	flag.StringVar(&lndMacaroonPath, "lnd-macaroonPath", "/Users/jonathangan/.polar/networks/1/volumes/lnd/alice/data/chain/bitcoin/regtest/admin.macaroon", "path to lnd macaroon")
+	flag.StringVar(&network, "network", "regtest", "which lightning network")
 
 	flag.Parse()
 }
