@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
-import { albyAuth, type InvoiceInfo } from "../services/albyAuth";
-import { USD } from "@getalby/sdk";
+import { auth, type InvoiceInfo } from "../services/auth";
 import { ErrorDisplay, useErrorRecovery } from "./ErrorBoundary";
 import { PaymentConfirmation } from "./PaymentConfirmation";
 
-interface AlbyPaymentDemoProps {
+interface PaymentDemoProps {
   assetId: string;
   assetName: string;
   price: number;
@@ -13,7 +12,7 @@ interface AlbyPaymentDemoProps {
   onCancel?: () => void;
 }
 
-export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel }: AlbyPaymentDemoProps) {
+export function PaymentDemo({ assetId, assetName, price, onSuccess, onCancel }: PaymentDemoProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
@@ -41,7 +40,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
 
   useEffect(() => {
     if (invoice.trim()) {
-      const validation = albyAuth.validateInvoice(invoice.trim());
+      const validation = auth.validateInvoice(invoice.trim());
       setInvoiceInfo(validation);
     } else {
       setInvoiceInfo(null);
@@ -50,7 +49,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
 
   const checkBalance = async () => {
     try {
-      const balanceMsat = await albyAuth.getBalance();
+      const balanceMsat = await auth.getBalance();
       setBalance(balanceMsat);
       setBalanceChecked(true);
       clearError();
@@ -62,9 +61,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
   };
 
   const handlePayment = async () => {
-    // Show confirmation modal instead of directly processing payment
     if (showInvoiceInput) {
-      // Validate invoice first
       if (!invoiceInfo?.valid) {
         handleError(new Error('Please enter a valid Lightning invoice'));
         return;
@@ -75,10 +72,9 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       }
     }
     
-    // Check balance before showing confirmation
     const totalCost = showInvoiceInput 
       ? (invoiceInfo?.amount || 0) * 1000
-      : (price + 1) * 1000; // Convert sats to msat and add network fee
+      : (price + 1) * 1000;
     
     if (balance !== null && balance < totalCost) {
       const balanceInSats = Math.floor(balance / 1000);
@@ -96,19 +92,11 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
     }
     
     const paymentOperation = async () => {
-      const lnClient = albyAuth.getLNClient();
-      if (!lnClient) {
-        throw new Error('Not connected to Alby wallet');
-      }
-
-      // In a real app, you would get the invoice from the seller
-      // For demo purposes, we'll create a test payment request
-      await lnClient.requestPayment(USD(price * 0.00000001)); // Convert sats to USD
+      // Mock payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Update balance after successful payment
       await checkBalance();
       
-      // Simulate payment success
       setTimeout(() => {
         setSuccess(true);
         setIsLoading(false);
@@ -132,9 +120,8 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
 
   const executeInvoicePayment = async () => {
     const invoicePaymentOperation = async () => {
-      await albyAuth.makePayment(invoice.trim());
+      await auth.makePayment(invoice.trim());
       
-      // Update balance after successful payment
       await checkBalance();
       
       setSuccess(true);
@@ -200,7 +187,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
         </div>
         <h2 className="text-xl font-semibold mb-2">Complete Purchase</h2>
         <p className="text-muted-foreground">
-          Pay with your Alby wallet to receive {assetName}
+          Pay with Lightning to receive {assetName}
         </p>
       </div>
 
@@ -215,14 +202,13 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       )}
 
       <div className="space-y-4">
-        {/* Balance Display */}
         {balanceChecked && (
           <div className="bg-muted/50 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">Your Balance</span>
               <div className="flex items-center gap-2">
                 <span className="font-medium">
-                  {balance !== null ? albyAuth.formatBalance(balance) : 'Unavailable'}
+                  {balance !== null ? auth.formatBalance(balance) : 'Unavailable'}
                 </span>
                 <button
                   onClick={checkBalance}
@@ -241,7 +227,6 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
           </div>
         )}
 
-        {/* Invoice Input Toggle */}
         <div className="bg-muted/50 p-4 rounded-lg">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium">Payment Method</span>
@@ -269,7 +254,6 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
                 />
               </div>
               
-              {/* Invoice Validation Status */}
               {invoice.trim() && invoiceInfo && (
                 <div className={`p-3 rounded-lg border ${
                   invoiceInfo.valid && !invoiceInfo.expired
@@ -351,7 +335,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
             ) : (
               <>
                 <Zap className="w-4 h-4" />
-                {showInvoiceInput ? 'Pay Invoice' : 'Pay with Alby'}
+                {showInvoiceInput ? 'Pay Invoice' : 'Pay with Lightning'}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -373,7 +357,6 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
         </p>
       </div>
 
-      {/* Payment Confirmation Modal */}
       <PaymentConfirmation
         isOpen={showConfirmation}
         onClose={() => setShowConfirmation(false)}
@@ -385,4 +368,4 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       />
     </div>
   );
-} 
+}

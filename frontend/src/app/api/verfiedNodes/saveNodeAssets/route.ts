@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongo from "mongodb";
 
-export default async function POST(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const client = new mongo.MongoClient(process.env.MONGODB_URI!);
     await client.connect();

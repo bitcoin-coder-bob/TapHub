@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Zap, AlertCircle } from "lucide-react";
-import { type InvoiceInfo } from "../services/albyAuth";
+import { type InvoiceInfo } from "../services/auth";
 
 interface PaymentConfirmationProps {
   isOpen: boolean;

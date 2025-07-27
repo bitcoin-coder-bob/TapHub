@@ -9,7 +9,7 @@ import {
   Clock,
   UserX,
 } from "lucide-react";
-import { albyAuth } from "../services/albyAuth";
+import { auth } from "../services/auth";
 
 interface AssetPurchaseFlowProps {
   assetId?: string;
@@ -28,7 +28,7 @@ export function AssetPurchaseFlow({
 
   const generateInvoice = async () => {
     // Check if user is authenticated
-    const currentUser = albyAuth.getCurrentUser();
+    const currentUser = auth.getCurrentUser();
     if (!currentUser) {
       alert("Please sign in to generate invoices");
       onNavigate("login");
@@ -86,8 +86,8 @@ export function AssetPurchaseFlow({
   };
 
   // Check authentication status
-  const currentUser = albyAuth.getCurrentUser();
-  const isAuthenticated = albyAuth.isAuthenticated();
+  const currentUser = auth.getCurrentUser();
+  const isAuthenticated = auth.isAuthenticated();
 
   if (step === 1) {
     return (

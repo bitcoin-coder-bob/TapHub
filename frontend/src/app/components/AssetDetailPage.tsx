@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Zap, AlertTriangle, CheckCircle, ExternalLink } from "lucide-react";
-import { albyAuth } from "../services/albyAuth";
+import { auth } from "../services/auth";
 
 interface AssetDetailPageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
@@ -41,7 +41,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
 
   // Get user's Alby pubkey
   useEffect(() => {
-    const user = albyAuth.getCurrentUser();
+    const user = auth.getCurrentUser();
     if (user && user.pubkey) {
       setUserPubkey(user.pubkey);
       setIsAuthenticated(true);

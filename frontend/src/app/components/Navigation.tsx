@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet, Circle, History, RefreshCw } from "lucide-react";
 
-import { AlbyUser, albyAuth, ConnectionState } from "../services/albyAuth";
+import { User as AuthUser, auth, ConnectionState } from "../services/auth";
 // import Image from "next/image";
 
 interface NavigationProps {
   currentPage: string;
   onNavigate: (page: string) => void;
-  user?: AlbyUser | null;
+  user?: AuthUser | null;
   onLogout?: () => void;
 }
 
@@ -24,9 +24,9 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   useEffect(() => {
     if (user) {
       // Subscribe to connection state changes
-      const unsubscribe = albyAuth.onConnectionStateChange(setConnectionState);
+      const unsubscribe = auth.onConnectionStateChange(setConnectionState);
       // Get initial state
-      const initialState = albyAuth.getConnectionState();
+      const initialState = auth.getConnectionState();
       setConnectionState(initialState);
       
       // Only fetch balance if we're already connected, otherwise wait for connection
@@ -73,7 +73,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
         return;
       }
       
-      const balanceMsat = await albyAuth.getBalance();
+      const balanceMsat = await auth.getBalance();
       setBalance(balanceMsat);
       setBalanceError(null);
     } catch (error) {
@@ -90,9 +90,9 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   const handleReconnectWallet = async () => {
     setIsReconnecting(true);
     try {
-      const credentials = albyAuth.getStoredCredentials();
+      const credentials = auth.getStoredCredentials();
       if (credentials) {
-        await albyAuth.connectWithAlby(credentials);
+        await auth.connectWithCredentials(credentials);
         await fetchBalance();
       }
     } catch (error) {
@@ -106,7 +106,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
     { id: "home", label: "Home" },
     { id: "discover", label: "Browse", icon: Search },
     // Only show dashboard for node runners
-    ...(user && albyAuth.isNodeRunner() ? [{ id: "dashboard", label: "List", icon: Settings }] : []),
+    ...(user && auth.isNodeRunner() ? [{ id: "dashboard", label: "List", icon: Settings }] : []),
   ];
 
   return (
@@ -191,7 +191,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400 border border-green-500/20">
                     <Wallet className="w-4 h-4" />
                     <span className="text-sm font-medium">
-                      {albyAuth.formatBalance(balance)}
+                      {auth.formatBalance(balance)}
                     </span>
                   </div>
                 ) : balanceError ? (
@@ -208,7 +208,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                   >
                     <User className="w-4 h-4 text-primary" />
                     <span className="text-sm">
-                      {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
+                      {user.alias || (user.type === 'node' ? 'Node Runner' : 'Lightning User')}
                     </span>
                   </button>
                   
@@ -225,7 +225,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                           <User className="w-4 h-4" />
                           Profile
                         </button>
-                        {user && albyAuth.isNodeRunner() && (
+                        {user && auth.isNodeRunner() && (
                           <button
                             onClick={() => {
                               onNavigate("dashboard");
@@ -355,7 +355,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                         <div className="flex items-center gap-2">
                           <Wallet className="w-4 h-4" />
                           <span className="text-sm font-medium">
-                            {albyAuth.formatBalance(balance)}
+                            {auth.formatBalance(balance)}
                           </span>
                         </div>
                       </div>
@@ -378,7 +378,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-primary" />
                         <span>
-                          {user.alias || (user.type === 'node' ? 'Node Runner' : 'Alby User')}
+                          {user.alias || (user.type === 'node' ? 'Node Runner' : 'Lightning User')}
                         </span>
                       </div>
                     </button>

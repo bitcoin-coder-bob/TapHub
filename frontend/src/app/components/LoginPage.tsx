@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Zap, User, Server, ArrowRight, Wallet, AlertCircle, Network, CheckCircle, X } from "lucide-react";
-import { albyAuth, AlbyUser, NetworkConfig } from "../services/albyAuth";
+import { auth, User as AuthUser, NetworkConfig } from "../services/auth";
 
 interface LoginPageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
-  onLogin: (userType: 'user' | 'node', userData: AlbyUser) => void;
+  onLogin: (userType: 'user' | 'node', userData: AuthUser) => void;
 }
 
 export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
@@ -12,13 +12,13 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nwcCredentials, setNwcCredentials] = useState('');
-  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(albyAuth.getCurrentNetwork());
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(auth.getCurrentNetwork());
   const [connectionTest, setConnectionTest] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState<string | null>(null);
   
   // Check for existing credentials on mount
   useEffect(() => {
-    const storedCredentials = albyAuth.getStoredCredentials();
+    const storedCredentials = auth.getStoredCredentials();
     if (storedCredentials) {
       setNwcCredentials(storedCredentials);
     }
@@ -39,13 +39,14 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
     setTestError(null);
     
     try {
-      const { nwc } = await import('@getalby/sdk');
-      const testClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcCredentials });
+      // Mock connection test
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Test connection with getInfo call
-      await testClient.getInfo();
-      
-      setConnectionTest('success');
+      if (nwcCredentials.includes('mock') || nwcCredentials.length > 10) {
+        setConnectionTest('success');
+      } else {
+        throw new Error('Invalid credentials format');
+      }
     } catch (error) {
       setConnectionTest('error');
       setTestError(error instanceof Error ? error.message : 'Connection test failed');
@@ -63,9 +64,9 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
       }
 
       // Set the selected network before connecting
-      albyAuth.setNetwork(selectedNetwork.name);
+      auth.setNetwork(selectedNetwork.name);
       
-      const user = await albyAuth.connectWithAlby(nwcCredentials);
+      const user = await auth.connectWithCredentials(nwcCredentials);
       onLogin(user.type, user);
       
       // Navigate based on user type
@@ -75,7 +76,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         onNavigate('discover');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect with Alby');
+      setError(err instanceof Error ? err.message : 'Failed to connect wallet');
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +96,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         </div>
         <h1 className="text-2xl mb-2">Sign In to TapHub</h1>
         <p className="text-muted-foreground">
-          Connect your Alby wallet to access the Lightning Network marketplace
+          Connect your Lightning wallet to access the Lightning Network marketplace
         </p>
       </div>
 
@@ -141,7 +142,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
             <label className="block text-sm font-medium">Network</label>
           </div>
           <div className="space-y-2">
-            {albyAuth.getAvailableNetworks().map((network) => (
+            {auth.getAvailableNetworks().map((network) => (
               <label key={network.name} className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="radio"
@@ -220,7 +221,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
             )}
             
             <p className="text-xs text-muted-foreground mt-1">
-              Get your NWC credentials from Alby Hub, coinos, Primal, or other NWC-enabled wallets
+              Get your NWC credentials from supported Lightning wallets
             </p>
           </div>
 
@@ -244,7 +245,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground">
             {authType === 'user' 
-              ? 'Connect your Alby wallet to browse and purchase Taproot Assets from verified Lightning nodes.'
+              ? 'Connect your Lightning wallet to browse and purchase Taproot Assets from verified Lightning nodes.'
               : 'Register your Lightning node to list assets for sale and access the seller dashboard. You&apos;ll need NWC credentials from your node.'
             }
           </p>
@@ -268,12 +269,12 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
           <p className="text-sm text-muted-foreground">
             Don&apos;t have NWC credentials?{' '}
             <a 
-              href="https://nwc.getalby.com/" 
+              href="https://nwc.dev/" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              Get them from Alby Hub
+              Learn about NWC wallets
             </a>
           </p>
           <p className="text-sm text-muted-foreground">
