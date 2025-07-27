@@ -1,5 +1,5 @@
-import { Plus, Package, Zap, DollarSign, ChevronDown, X } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Plus, Package, Zap, DollarSign, X } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface Asset {
   id: string;
@@ -11,33 +11,21 @@ interface Asset {
   status: "Active" | "Draft";
 }
 
-interface AvailableAsset {
-  id: string;
-  name: string;
-  symbol: string;
-  totalSupply: string;
-  available: string;
-  status: string;
-}
-
 interface AssetListingDashboardProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardProps) {
   const [userAssets, setUserAssets] = useState<Asset[]>([]);
-  const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
-  const [showAssetDropdown, setShowAssetDropdown] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<AvailableAsset | null>(null);
-  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [showListingForm, setShowListingForm] = useState(false);
   const [listingForm, setListingForm] = useState({
+    name: "",
+    symbol: "",
     price: "",
     priceUnit: "BTC",
     available: "",
     status: "Draft" as "Active" | "Draft"
   });
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load assets from localStorage on component mount
   useEffect(() => {
@@ -57,63 +45,16 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     localStorage.setItem('tapHubAssets', JSON.stringify(userAssets));
   }, [userAssets]);
 
-  // Handle click outside dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowAssetDropdown(false);
-      }
-    };
-
-    if (showAssetDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showAssetDropdown]);
-
-  // Fetch available assets from API
-  const fetchAvailableAssets = async () => {
-    setIsLoadingAssets(true);
-    try {
-      const response = await fetch('/api/getAvailableAssets');
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableAssets(data.assets || []);
-      } else {
-        console.error('Failed to fetch available assets');
-      }
-    } catch (error) {
-      console.error('Error fetching available assets:', error);
-    } finally {
-      setIsLoadingAssets(false);
-    }
-  };
-
-  const handleSelectAssetForListing = (asset: AvailableAsset) => {
-    setSelectedAsset(asset);
-    setListingForm({
-      price: "0.0001",
-      priceUnit: "BTC",
-      available: asset.available,
-      status: "Draft"
-    });
-    setShowAssetDropdown(false);
-    setShowListingForm(true);
-  };
-
   const handleCreateListing = () => {
-    if (!selectedAsset || !listingForm.price || !listingForm.available) {
+    if (!listingForm.name || !listingForm.symbol || !listingForm.price || !listingForm.available) {
       alert('Please fill in all required fields');
       return;
     }
 
     const newListingAsset: Asset = {
       id: Date.now().toString(),
-      name: selectedAsset.name,
-      symbol: selectedAsset.symbol,
+      name: listingForm.name,
+      symbol: listingForm.symbol,
       price: listingForm.price,
       priceUnit: listingForm.priceUnit,
       available: listingForm.available,
@@ -121,9 +62,10 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     };
 
     setUserAssets(prev => [...prev, newListingAsset]);
-    setSelectedAsset(null);
     setShowListingForm(false);
     setListingForm({
+      name: "",
+      symbol: "",
       price: "",
       priceUnit: "BTC",
       available: "",
@@ -164,62 +106,13 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             Manage your Taproot Asset listings
           </p>
         </div>
-        <div className="relative" ref={dropdownRef}>
-          <button 
-            onClick={() => {
-              if (!showAssetDropdown) {
-                fetchAvailableAssets();
-              }
-              setShowAssetDropdown(!showAssetDropdown);
-            }}
-            disabled={isLoadingAssets}
-            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-            {isLoadingAssets ? 'Loading...' : 'Add Asset'}
-            <ChevronDown className="w-4 h-4" />
-          </button>
-          
-          {showAssetDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-              <div className="p-4 border-b border-border">
-                <h3 className="text-sm font-medium">Available Assets</h3>
-                <p className="text-xs text-muted-foreground">Select an asset to add to your listings</p>
-              </div>
-              
-              {isLoadingAssets ? (
-                <div className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Loading assets...</p>
-                </div>
-              ) : availableAssets.length > 0 ? (
-                <div className="p-2">
-                  {availableAssets.map((asset) => (
-                    <button
-                      key={asset.id}
-                      onClick={() => handleSelectAssetForListing(asset)}
-                      className="w-full p-3 text-left hover:bg-accent rounded-lg transition-colors border-b border-border last:border-b-0"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium">{asset.name}</h4>
-                          <p className="text-xs text-muted-foreground">{asset.symbol}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Available: {asset.available}</p>
-                          <p className="text-xs text-muted-foreground">Total: {asset.totalSupply}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground">No assets available</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <button 
+          onClick={() => setShowListingForm(true)}
+          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Asset
+        </button>
       </div>
 
       {/* Simple Stats */}
@@ -310,12 +203,7 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
               Start by creating your first Taproot Asset listing
             </p>
             <button 
-              onClick={() => {
-                if (!showAssetDropdown) {
-                  fetchAvailableAssets();
-                }
-                setShowAssetDropdown(!showAssetDropdown);
-              }}
+              onClick={() => setShowListingForm(true)}
               className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
             >
               Add First Asset
@@ -325,15 +213,22 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
       </div>
 
       {/* Listing Form Modal */}
-      {showListingForm && selectedAsset && (
+      {showListingForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Create Listing for {selectedAsset.name}</h2>
+              <h2 className="text-lg font-semibold">Create New Asset Listing</h2>
               <button 
                 onClick={() => {
                   setShowListingForm(false);
-                  setSelectedAsset(null);
+                  setListingForm({
+                    name: "",
+                    symbol: "",
+                    price: "",
+                    priceUnit: "BTC",
+                    available: "",
+                    status: "Draft"
+                  });
                 }}
                 className="text-muted-foreground hover:text-foreground"
               >
@@ -342,9 +237,27 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             </div>
             
             <div className="space-y-4">
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-sm font-medium">{selectedAsset.name}</p>
-                <p className="text-xs text-muted-foreground">{selectedAsset.symbol} • Total Supply: {selectedAsset.totalSupply}</p>
+              <div>
+                <label className="block text-sm font-medium mb-1">Asset Name *</label>
+                <input
+                  type="text"
+                  value={listingForm.name}
+                  onChange={(e) => setListingForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., My Custom Token"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Asset Symbol *</label>
+                <input
+                  type="text"
+                  value={listingForm.symbol}
+                  onChange={(e) => setListingForm(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., MCT"
+                  maxLength={10}
+                />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -384,7 +297,7 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
                   placeholder="e.g., 10,000"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Maximum available: {selectedAsset.available}
+                  Enter the total quantity available for sale
                 </p>
               </div>
               
@@ -405,7 +318,14 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
               <button
                 onClick={() => {
                   setShowListingForm(false);
-                  setSelectedAsset(null);
+                  setListingForm({
+                    name: "",
+                    symbol: "",
+                    price: "",
+                    priceUnit: "BTC",
+                    available: "",
+                    status: "Draft"
+                  });
                 }}
                 className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
               >
