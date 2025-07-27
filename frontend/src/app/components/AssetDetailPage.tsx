@@ -65,6 +65,14 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
         setError(null);
 
         const response = await fetch(`/api/verfiedNodes/getNodeAssets?nodePubkey=${nodePubkey}`);
+        
+        if (response.status === 404) {
+          // No nodes registered in DB - show empty state
+          setError('no-assets-registered');
+          setIsLoading(false);
+          return;
+        }
+        
         if (!response.ok) {
           throw new Error('Failed to fetch asset details');
         }
@@ -173,6 +181,36 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
           </div>
           <h3 className="mb-2">Loading asset details...</h3>
           <p className="text-muted-foreground">Fetching asset information</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error === 'no-assets-registered') {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-blue-500 text-2xl">📦</span>
+          </div>
+          <h3 className="mb-2">No Assets Available</h3>
+          <p className="text-muted-foreground mb-6">
+            There are currently no nodes registered with assets in the database. Check back later or register your own node.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+              onClick={() => onNavigate("register-node")}
+            >
+              Register Node
+            </button>
+            <button
+              className="px-4 py-2 border border-border hover:bg-accent rounded-lg transition-colors"
+              onClick={() => onNavigate("asset-discovery")}
+            >
+              Back to Discovery
+            </button>
+          </div>
         </div>
       </div>
     );

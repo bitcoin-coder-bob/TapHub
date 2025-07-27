@@ -43,6 +43,14 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
 
         // First, get all verified nodes
         const nodesResponse = await fetch('/api/verfiedNodes/getVerfiedNodes');
+        
+        if (nodesResponse.status === 404) {
+          // No nodes registered in DB
+          setAssets([]);
+          setIsLoading(false);
+          return;
+        }
+        
         if (!nodesResponse.ok) {
           throw new Error('Failed to fetch nodes');
         }
@@ -216,16 +224,26 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
           </div>
           <h3 className="mb-2">No assets found</h3>
           <p className="text-muted-foreground mb-6">
-            {searchQuery ? 'Try searching for something else' : 'No assets are currently available in the database'}
+            {searchQuery ? 'Try searching for something else' : 'No assets are currently available. This could be because no nodes are registered or nodes have no assets listed.'}
           </p>
-          {searchQuery && (
-            <button
-              className="px-4 py-2 border border-border text-foreground hover:bg-accent rounded-lg transition-colors"
-              onClick={() => setSearchQuery("")}
-            >
-              Clear Search
-            </button>
-          )}
+          <div className="flex gap-4 justify-center">
+            {searchQuery && (
+              <button
+                className="px-4 py-2 border border-border text-foreground hover:bg-accent rounded-lg transition-colors"
+                onClick={() => setSearchQuery("")}
+              >
+                Clear Search
+              </button>
+            )}
+            {!searchQuery && (
+              <button
+                className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+                onClick={() => onNavigate("register-node")}
+              >
+                Register Your Node
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
