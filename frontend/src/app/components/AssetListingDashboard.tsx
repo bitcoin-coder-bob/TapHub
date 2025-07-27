@@ -1,5 +1,5 @@
-import { Plus, Package, Zap, DollarSign, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Plus, Package, Zap, DollarSign, ChevronDown, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
 interface Asset {
   id: string;
@@ -11,21 +11,33 @@ interface Asset {
   status: "Active" | "Draft";
 }
 
+interface AvailableAsset {
+  id: string;
+  name: string;
+  symbol: string;
+  totalSupply: string;
+  available: string;
+  status: string;
+}
+
 interface AssetListingDashboardProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardProps) {
   const [userAssets, setUserAssets] = useState<Asset[]>([]);
-  const [showNewAssetModal, setShowNewAssetModal] = useState(false);
-  const [newAsset, setNewAsset] = useState<Omit<Asset, 'id'>>({
-    name: "",
-    symbol: "",
+  const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
+  const [showAssetDropdown, setShowAssetDropdown] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<AvailableAsset | null>(null);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [showListingForm, setShowListingForm] = useState(false);
+  const [listingForm, setListingForm] = useState({
     price: "",
     priceUnit: "BTC",
     available: "",
-    status: "Draft"
+    status: "Draft" as "Active" | "Draft"
   });
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load assets from localStorage on component mount
   useEffect(() => {
@@ -45,27 +57,78 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     localStorage.setItem('tapHubAssets', JSON.stringify(userAssets));
   }, [userAssets]);
 
-  const handleCreateAsset = () => {
-    if (!newAsset.name || !newAsset.symbol || !newAsset.price || !newAsset.available) {
+  // Handle click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowAssetDropdown(false);
+      }
+    };
+
+    if (showAssetDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAssetDropdown]);
+
+  // Fetch available assets from API
+  const fetchAvailableAssets = async () => {
+    setIsLoadingAssets(true);
+    try {
+      const response = await fetch('/api/getAvailableAssets');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableAssets(data.assets || []);
+      } else {
+        console.error('Failed to fetch available assets');
+      }
+    } catch (error) {
+      console.error('Error fetching available assets:', error);
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  };
+
+  const handleSelectAssetForListing = (asset: AvailableAsset) => {
+    setSelectedAsset(asset);
+    setListingForm({
+      price: "0.0001",
+      priceUnit: "BTC",
+      available: asset.available,
+      status: "Draft"
+    });
+    setShowAssetDropdown(false);
+    setShowListingForm(true);
+  };
+
+  const handleCreateListing = () => {
+    if (!selectedAsset || !listingForm.price || !listingForm.available) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const asset: Asset = {
-      ...newAsset,
-      id: Date.now().toString()
+    const newListingAsset: Asset = {
+      id: Date.now().toString(),
+      name: selectedAsset.name,
+      symbol: selectedAsset.symbol,
+      price: listingForm.price,
+      priceUnit: listingForm.priceUnit,
+      available: listingForm.available,
+      status: listingForm.status
     };
 
-    setUserAssets(prev => [...prev, asset]);
-    setNewAsset({
-      name: "",
-      symbol: "",
+    setUserAssets(prev => [...prev, newListingAsset]);
+    setSelectedAsset(null);
+    setShowListingForm(false);
+    setListingForm({
       price: "",
       priceUnit: "BTC",
       available: "",
       status: "Draft"
     });
-    setShowNewAssetModal(false);
   };
 
   const handleDeleteAsset = (id: string) => {
@@ -75,19 +138,10 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
   };
 
   const handleEditAsset = (id: string) => {
-    const asset = userAssets.find(a => a.id === id);
-    if (asset) {
-      setNewAsset({
-        name: asset.name,
-        symbol: asset.symbol,
-        price: asset.price,
-        priceUnit: asset.priceUnit,
-        available: asset.available,
-        status: asset.status
-      });
-      setShowNewAssetModal(true);
-      // Remove the old asset and will create a new one
-      setUserAssets(prev => prev.filter(a => a.id !== id));
+    // For now, just delete and let user add again
+    // In a real implementation, you might want to show a form to edit price/quantity
+    if (confirm('Edit will remove the current listing. You can add it again with new settings.')) {
+      setUserAssets(prev => prev.filter(asset => asset.id !== id));
     }
   };
 
@@ -110,13 +164,62 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             Manage your Taproot Asset listings
           </p>
         </div>
-        <button 
-          onClick={() => setShowNewAssetModal(true)}
-          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Asset
-        </button>
+        <div className="relative" ref={dropdownRef}>
+          <button 
+            onClick={() => {
+              if (!showAssetDropdown) {
+                fetchAvailableAssets();
+              }
+              setShowAssetDropdown(!showAssetDropdown);
+            }}
+            disabled={isLoadingAssets}
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" />
+            {isLoadingAssets ? 'Loading...' : 'Add Asset'}
+            <ChevronDown className="w-4 h-4" />
+          </button>
+          
+          {showAssetDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+              <div className="p-4 border-b border-border">
+                <h3 className="text-sm font-medium">Available Assets</h3>
+                <p className="text-xs text-muted-foreground">Select an asset to add to your listings</p>
+              </div>
+              
+              {isLoadingAssets ? (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-muted-foreground">Loading assets...</p>
+                </div>
+              ) : availableAssets.length > 0 ? (
+                <div className="p-2">
+                  {availableAssets.map((asset) => (
+                    <button
+                      key={asset.id}
+                      onClick={() => handleSelectAssetForListing(asset)}
+                      className="w-full p-3 text-left hover:bg-accent rounded-lg transition-colors border-b border-border last:border-b-0"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-medium">{asset.name}</h4>
+                          <p className="text-xs text-muted-foreground">{asset.symbol}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Available: {asset.available}</p>
+                          <p className="text-xs text-muted-foreground">Total: {asset.totalSupply}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-muted-foreground">No assets available</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Simple Stats */}
@@ -207,23 +310,31 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
               Start by creating your first Taproot Asset listing
             </p>
             <button 
-              onClick={() => setShowNewAssetModal(true)}
+              onClick={() => {
+                if (!showAssetDropdown) {
+                  fetchAvailableAssets();
+                }
+                setShowAssetDropdown(!showAssetDropdown);
+              }}
               className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
             >
-              Create First Asset
+              Add First Asset
             </button>
           </div>
         )}
       </div>
 
-      {/* New Asset Modal */}
-      {showNewAssetModal && (
+      {/* Listing Form Modal */}
+      {showListingForm && selectedAsset && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Create New Asset</h2>
+              <h2 className="text-lg font-semibold">Create Listing for {selectedAsset.name}</h2>
               <button 
-                onClick={() => setShowNewAssetModal(false)}
+                onClick={() => {
+                  setShowListingForm(false);
+                  setSelectedAsset(null);
+                }}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <X className="w-5 h-5" />
@@ -231,26 +342,9 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             </div>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Asset Name *</label>
-                <input
-                  type="text"
-                  value={newAsset.name}
-                  onChange={(e) => setNewAsset(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="e.g., My Gaming Token"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Symbol *</label>
-                <input
-                  type="text"
-                  value={newAsset.symbol}
-                  onChange={(e) => setNewAsset(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="e.g., GAME"
-                />
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium">{selectedAsset.name}</p>
+                <p className="text-xs text-muted-foreground">{selectedAsset.symbol} • Total Supply: {selectedAsset.totalSupply}</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -259,18 +353,18 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
                   <input
                     type="number"
                     step="0.000001"
-                    value={newAsset.price}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, price: e.target.value }))}
+                    value={listingForm.price}
+                    onChange={(e) => setListingForm(prev => ({ ...prev, price: e.target.value }))}
                     className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="0.0002"
+                    placeholder="0.0001"
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium mb-1">Price Unit</label>
                   <select
-                    value={newAsset.priceUnit}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, priceUnit: e.target.value }))}
+                    value={listingForm.priceUnit}
+                    onChange={(e) => setListingForm(prev => ({ ...prev, priceUnit: e.target.value }))}
                     className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="BTC">BTC</option>
@@ -284,18 +378,21 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
                 <label className="block text-sm font-medium mb-1">Available Quantity *</label>
                 <input
                   type="text"
-                  value={newAsset.available}
-                  onChange={(e) => setNewAsset(prev => ({ ...prev, available: e.target.value }))}
+                  value={listingForm.available}
+                  onChange={(e) => setListingForm(prev => ({ ...prev, available: e.target.value }))}
                   className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="e.g., 10,000"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Maximum available: {selectedAsset.available}
+                </p>
               </div>
               
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
                 <select
-                  value={newAsset.status}
-                  onChange={(e) => setNewAsset(prev => ({ ...prev, status: e.target.value as "Active" | "Draft" }))}
+                  value={listingForm.status}
+                  onChange={(e) => setListingForm(prev => ({ ...prev, status: e.target.value as "Active" | "Draft" }))}
                   className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="Draft">Draft</option>
@@ -306,16 +403,19 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowNewAssetModal(false)}
+                onClick={() => {
+                  setShowListingForm(false);
+                  setSelectedAsset(null);
+                }}
                 className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleCreateAsset}
+                onClick={handleCreateListing}
                 className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
               >
-                Create Asset
+                Create Listing
               </button>
             </div>
           </div>
