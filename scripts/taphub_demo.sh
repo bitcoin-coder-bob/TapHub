@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# TapHub 100% REAL Demo - Complete Asset Trading Flow
-# Every operation uses actual Lightning Network and Taproot Assets
+# TapHub Demo - Complete Asset Trading Flow
+# Uses actual Lightning Network and Taproot Assets
 
 set -e
 
@@ -30,8 +30,8 @@ print_header() {
     echo -e "${PURPLE}============================================${NC}\n"
 }
 
-print_header "TapHub 100% REAL Demo - Complete Asset Trading Flow"
-echo -e "${BLUE}This demo performs ACTUAL operations:${NC}"
+print_header "TapHub Demo - Complete Asset Trading Flow"
+echo -e "${BLUE}This demo performs actual operations:${NC}"
 echo "- Real asset minting (Bob creates BobBux)"
 echo "- Real Lightning channels (Alice <-> Bob)"
 echo "- Real asset transfers between nodes"
@@ -41,7 +41,7 @@ echo
 demo_pause
 
 # =============================================================================
-# PART 1: EDGE NODE REGISTRATION (1 min) - 100% REAL
+# PART 1: EDGE NODE REGISTRATION (1 min)
 # =============================================================================
 
 print_header "Part 1: Edge Node Registration (1 min) - Bob Creates BobBux"
@@ -102,7 +102,7 @@ echo "SUCCESS: Bob's node is live on TapHub marketplace with real assets!"
 demo_pause
 
 # =============================================================================
-# PART 2: USER JOURNEY (3 min) - 100% REAL CHANNEL AND ASSET OPERATIONS
+# PART 2: USER JOURNEY (3 min) - CHANNEL AND ASSET OPERATIONS
 # =============================================================================
 
 print_header "Part 2: User Journey - Alice Buys Real BobBux (3 min)"
@@ -242,7 +242,7 @@ echo "Bob's remaining $BOB_ASSET_NAME: $BOB_REMAINING units"
 demo_pause
 
 # =============================================================================
-# PART 3: REVERSE FLOW (1 min) - 100% REAL ASSET SALE
+# PART 3: REVERSE FLOW (1 min) - ASSET SALE
 # =============================================================================
 
 print_header "Part 3: Reverse Flow - Alice Sells BobBux Back (1 min)"
@@ -309,12 +309,12 @@ echo "- Bob: $BOB_FINAL_SATS sats"
 demo_pause
 
 # =============================================================================
-# DEMO CONCLUSION - 100% REAL RESULTS
+# DEMO CONCLUSION
 # =============================================================================
 
-print_header "TapHub 100% REAL Demo Complete!"
+print_header "TapHub Demo Complete!"
 
-echo -e "${GREEN}REAL Operations Performed:${NC}"
+echo -e "${GREEN}Operations Performed:${NC}"
 echo "- Bob minted actual BobBux asset ($BOB_ASSET_ID)"
 echo "- Alice opened real Lightning channel (TXID: $FUNDING_TXID)"
 echo "- Real asset transfers: Bob -> Alice -> Bob"
@@ -336,5 +336,5 @@ echo "Bob channels: $(lncli_bob listchannels | jq '.channels | length')"
 echo "Alice assets: $(tapcli_alice assets list | jq '.assets | length') types"
 echo "Bob assets: $(tapcli_bob assets list | jq '.assets | length') types"
 
-echo -e "\n${PURPLE}TapHub - 100% Real Lightning Network and Taproot Assets Trading${NC}"
-echo -e "${PURPLE}Every operation was performed on actual blockchain infrastructure!${NC}\n"
+echo -e "\n${PURPLE}TapHub - Lightning Network and Taproot Assets Trading${NC}"
+echo -e "${PURPLE}Operations performed on actual blockchain infrastructure${NC}\n"

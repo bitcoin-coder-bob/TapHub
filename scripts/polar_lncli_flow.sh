@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Full Flow Script for Polar Lightning Network setup (lncli + tapcli)
-# Updated to work with Polar regtest environment
 
 set -e  # Exit on error
 

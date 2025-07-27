@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Full Flow Script for Polar Lightning Network setup
-# Updated to work with Polar regtest environment and actual asset IDs
 
 set -e  # Exit on error
 
