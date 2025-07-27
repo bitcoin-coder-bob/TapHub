@@ -39,6 +39,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
       setBalance(null);
       setBalanceError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Close dropdown when clicking outside
@@ -61,6 +62,7 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
     if (connectionState === 'connected' && user) {
       fetchBalance();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionState, user]);
 
   const fetchBalance = async () => {
@@ -103,7 +105,8 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   const navItems = [
     { id: "home", label: "Home" },
     { id: "discover", label: "Browse", icon: Search },
-    { id: "dashboard", label: "List", icon: Settings },
+    // Only show dashboard for node runners
+    ...(user && albyAuth.isNodeRunner() ? [{ id: "dashboard", label: "List", icon: Settings }] : []),
   ];
 
   return (
@@ -222,6 +225,18 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
                           <User className="w-4 h-4" />
                           Profile
                         </button>
+                        {user && albyAuth.isNodeRunner() && (
+                          <button
+                            onClick={() => {
+                              onNavigate("dashboard");
+                              setIsUserDropdownOpen(false);
+                            }}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Asset Dashboard
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             onNavigate("transactions");

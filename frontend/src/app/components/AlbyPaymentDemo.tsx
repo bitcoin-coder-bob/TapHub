@@ -36,6 +36,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
 
   useEffect(() => {
     checkBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

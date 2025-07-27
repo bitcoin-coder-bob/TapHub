@@ -29,6 +29,16 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Node Runner Access Notice */}
+      <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            <strong>Node Runner Access:</strong> This dashboard is only available to Lightning node operators who can list Taproot Assets for sale.
+          </p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl mb-2">My Assets</h1>

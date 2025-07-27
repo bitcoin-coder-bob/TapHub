@@ -57,6 +57,12 @@ export default function App() {
       case "register":
         return <RegisterNodePage onNavigate={navigate} onLogin={handleLogin} params={pageParams} />;
       case "dashboard":
+        // Check if user is a node runner
+        if (!user || !albyAuth.isNodeRunner()) {
+          // Redirect non-node runners to discover page
+          navigate('discover');
+          return <AssetDiscoveryPage onNavigate={navigate as (page: string, params: unknown) => void} />;
+        }
         return <AssetListingDashboard onNavigate={navigate} />;
       case "purchase":
       case "asset-detail":
