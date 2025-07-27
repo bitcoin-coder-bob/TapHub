@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Zap, Wallet, ArrowRight, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { albyAuth } from "../services/albyAuth";
 import { USD } from "@getalby/sdk";
 
@@ -15,12 +15,37 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceChecked, setBalanceChecked] = useState(false);
+
+  useEffect(() => {
+    checkBalance();
+  }, []);
+
+  const checkBalance = async () => {
+    try {
+      const balanceMsat = await albyAuth.getBalance();
+      setBalance(balanceMsat);
+      setBalanceChecked(true);
+    } catch (error) {
+      console.error('Failed to check balance:', error);
+      setBalanceChecked(true);
+    }
+  };
 
   const handlePayment = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
+      // Check balance first
+      const totalCost = (price + 1) * 1000; // Convert sats to msat and add network fee
+      
+      if (balance !== null && balance < totalCost) {
+        const balanceInSats = Math.floor(balance / 1000);
+        throw new Error(`Insufficient balance. You have ${balanceInSats.toLocaleString()} sats but need ${(price + 1).toLocaleString()} sats.`);
+      }
+
       const lnClient = albyAuth.getLNClient();
       if (!lnClient) {
         throw new Error('Not connected to Alby wallet');
@@ -29,6 +54,9 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       // In a real app, you would get the invoice from the seller
       // For demo purposes, we'll create a test payment request
       await lnClient.requestPayment(USD(price * 0.00000001)); // Convert sats to USD
+      
+      // Update balance after successful payment
+      await checkBalance();
       
       // Simulate payment success
       setTimeout(() => {
@@ -93,6 +121,32 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
       )}
 
       <div className="space-y-4">
+        {/* Balance Display */}
+        {balanceChecked && (
+          <div className="bg-muted/50 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground">Your Balance</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  {balance !== null ? albyAuth.formatBalance(balance) : 'Unavailable'}
+                </span>
+                <button
+                  onClick={checkBalance}
+                  className="p-1 hover:bg-muted rounded"
+                  title="Refresh balance"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            {balance !== null && balance < (price + 1) * 1000 && (
+              <div className="text-sm text-destructive">
+                Insufficient funds for this purchase
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="bg-muted/50 p-4 rounded-lg">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-muted-foreground">Asset</span>
@@ -116,7 +170,7 @@ export function AlbyPaymentDemo({ assetId, assetName, price, onSuccess, onCancel
 
           <button
             onClick={handlePayment}
-            disabled={isLoading}
+            disabled={isLoading || (balance !== null && balance < (price + 1) * 1000)}
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (

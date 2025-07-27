@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Zap, User, Server, ArrowRight, Wallet, AlertCircle, Network } from "lucide-react";
+import { Zap, User, Server, ArrowRight, Wallet, AlertCircle, Network, CheckCircle, X } from "lucide-react";
 import { albyAuth, AlbyUser, NetworkConfig } from "../services/albyAuth";
 
 interface LoginPageProps {
@@ -13,6 +13,8 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [nwcCredentials, setNwcCredentials] = useState('');
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(albyAuth.getCurrentNetwork());
+  const [connectionTest, setConnectionTest] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
   
   // Check for existing credentials on mount
   useEffect(() => {
@@ -21,6 +23,34 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
       setNwcCredentials(storedCredentials);
     }
   }, []);
+
+  // Test connection when credentials change
+  useEffect(() => {
+    if (nwcCredentials.trim() && nwcCredentials.startsWith('nostr+walletconnect://')) {
+      testConnection();
+    } else {
+      setConnectionTest('idle');
+      setTestError(null);
+    }
+  }, [nwcCredentials]);
+
+  const testConnection = async () => {
+    setConnectionTest('testing');
+    setTestError(null);
+    
+    try {
+      const { nwc } = await import('@getalby/sdk');
+      const testClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcCredentials });
+      
+      // Test connection with getInfo call
+      await testClient.getInfo();
+      
+      setConnectionTest('success');
+    } catch (error) {
+      setConnectionTest('error');
+      setTestError(error instanceof Error ? error.message : 'Connection test failed');
+    }
+  };
 
   const handleAlbyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,10 +190,43 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
                 value={nwcCredentials}
                 onChange={(e) => setNwcCredentials(e.target.value)}
                 placeholder="nostr+walletconnect://..."
-                className="w-full pl-10 pr-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
+                className="w-full pl-10 pr-10 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
                 required
               />
+              {/* Connection Status Indicator */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {connectionTest === 'testing' && (
+                  <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                )}
+                {connectionTest === 'success' && (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                )}
+                {connectionTest === 'error' && (
+                  <X className="w-4 h-4 text-red-500" />
+                )}
+              </div>
             </div>
+            
+            {/* Connection Test Results */}
+            {connectionTest === 'success' && (
+              <div className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm">Connection verified successfully</span>
+              </div>
+            )}
+            {connectionTest === 'error' && testError && (
+              <div className="mt-2 flex items-center gap-2 text-red-600 dark:text-red-400">
+                <X className="w-4 h-4" />
+                <span className="text-sm">{testError}</span>
+              </div>
+            )}
+            {connectionTest === 'testing' && (
+              <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Testing connection...</span>
+              </div>
+            )}
+            
             <p className="text-xs text-muted-foreground mt-1">
               Get your NWC credentials from Alby Hub, coinos, Primal, or other NWC-enabled wallets
             </p>
@@ -171,7 +234,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (nwcCredentials.trim() && connectionTest !== 'success')}
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (

@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Zap, Search, Settings, Menu, X, User, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Zap, Search, Settings, Menu, X, User, LogOut, Wallet } from "lucide-react";
 
-import { AlbyUser } from "../services/albyAuth";
+import { AlbyUser, albyAuth } from "../services/albyAuth";
 // import Image from "next/image";
 
 interface NavigationProps {
@@ -15,6 +15,28 @@ interface NavigationProps {
 
 export function Navigation({ currentPage, onNavigate, user, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchBalance();
+    } else {
+      setBalance(null);
+      setBalanceError(null);
+    }
+  }, [user]);
+
+  const fetchBalance = async () => {
+    try {
+      const balanceMsat = await albyAuth.getBalance();
+      setBalance(balanceMsat);
+      setBalanceError(null);
+    } catch (error) {
+      console.error('Failed to fetch balance:', error);
+      setBalanceError('Balance unavailable');
+    }
+  };
 
   const navItems = [
     { id: "home", label: "Home" },
@@ -66,6 +88,21 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
           <div className="hidden md:flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2">
+                {/* Balance Display */}
+                {balance !== null ? (
+                  <div className="flex items-center gap-1 px-3 py-2 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400">
+                    <Wallet className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      {albyAuth.formatBalance(balance)}
+                    </span>
+                  </div>
+                ) : balanceError ? (
+                  <div className="flex items-center gap-1 px-3 py-2 bg-red-500/10 rounded-lg text-red-600 dark:text-red-400">
+                    <Wallet className="w-4 h-4" />
+                    <span className="text-sm">Balance unavailable</span>
+                  </div>
+                ) : null}
+                
                 <button
                   onClick={() => onNavigate("profile")}
                   className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
@@ -133,6 +170,25 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
               <div className="pt-2 border-t border-border mt-2 space-y-2">
                 {user ? (
                   <>
+                    {/* Mobile Balance Display */}
+                    {balance !== null ? (
+                      <div className="w-full px-3 py-2 bg-green-500/10 rounded-lg text-green-600 dark:text-green-400">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            {albyAuth.formatBalance(balance)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : balanceError ? (
+                      <div className="w-full px-3 py-2 bg-red-500/10 rounded-lg text-red-600 dark:text-red-400">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="w-4 h-4" />
+                          <span className="text-sm">Balance unavailable</span>
+                        </div>
+                      </div>
+                    ) : null}
+                    
                     <button
                       className="w-full px-3 py-2 bg-primary/10 rounded-lg text-sm hover:bg-primary/20 transition-colors text-left"
                       onClick={() => {

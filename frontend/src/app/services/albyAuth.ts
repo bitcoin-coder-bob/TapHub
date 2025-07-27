@@ -201,6 +201,31 @@ class AlbyAuthService {
     return this.permissions.includes(method);
   }
 
+  // Get wallet balance
+  async getBalance(): Promise<number> {
+    if (!this.nwcClient) {
+      throw new Error('NWC client not initialized. Please connect first.');
+    }
+
+    if (!this.hasPermission('get_balance')) {
+      throw new Error('Missing permission: get_balance. Please reconnect with balance reading permissions.');
+    }
+
+    try {
+      const balance = await this.nwcClient.getBalance();
+      return balance.balance || 0;
+    } catch (error) {
+      console.error('Failed to get balance:', error);
+      throw new Error('Failed to retrieve wallet balance');
+    }
+  }
+
+  // Format balance in sats with comma separators
+  formatBalance(balanceMsat: number): string {
+    const sats = Math.floor(balanceMsat / 1000);
+    return sats.toLocaleString() + ' sats';
+  }
+
   // Check wallet info
   async getWalletInfo(): Promise<{ balance?: number; alias?: string; pubkey?: string }> {
     if (!this.nwcClient) {
