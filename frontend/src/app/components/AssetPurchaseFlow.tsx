@@ -5,6 +5,7 @@ import {
   CheckCircle,
   ArrowRight,
 } from "lucide-react";
+import { TaprootAssetPayment } from "./TaprootAssetPayment";
 
 interface AssetPurchaseFlowProps {
   assetId?: string;
@@ -142,7 +143,7 @@ export function AssetPurchaseFlow({
                     !quantity || parseFloat(quantity) < 10
                   }
                 >
-                  Generate Lightning Invoice
+                  Purchase with Lightning
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
@@ -159,6 +160,27 @@ export function AssetPurchaseFlow({
   }
 
   if (step === 2) {
+    const price = parseFloat(quantity) * 0.00025 * 100000000; // Convert to sats
+    const assetAmount = quantity;
+    
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <TaprootAssetPayment
+          assetId="base64_encoded_gaming_credits_asset_id"
+          assetName="Gaming Credits"
+          assetAmount={assetAmount}
+          price={price}
+          onSuccess={(result) => {
+            console.log('Gaming Credits purchased:', result);
+            setStep(3);
+          }}
+          onCancel={() => setStep(1)}
+        />
+      </div>
+    );
+  }
+
+  if (step === 3) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-card border border-border rounded-lg p-8 text-center">

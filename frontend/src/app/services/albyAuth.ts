@@ -976,6 +976,106 @@ class AlbyAuthService {
     }, 'makeInvoice');
   }
 
+  // Make a payment for Taproot assets
+  async makeTaprootAssetPayment(assetId: string, assetAmount: string, peerPubkey?: string): Promise<{ invoice: string; payment_hash: string; accepted_buy_quote?: Record<string, unknown> }> {
+    if (!this.nwcClient) {
+      throw new Error('NWC client not initialized. Please connect first.');
+    }
+
+    if (!this.hasPermission('pay_invoice')) {
+      throw new Error('Missing permission: pay_invoice. Please reconnect with payment permissions to make payments.');
+    }
+
+    // First, generate the Taproot asset invoice
+    const taprootInvoiceResponse = await fetch('/api/createInvoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        assetId,
+        assetAmount,
+        peerPubkey
+      }),
+    });
+
+    if (!taprootInvoiceResponse.ok) {
+      const errorData = await taprootInvoiceResponse.json();
+      throw new Error(`Failed to generate Taproot asset invoice: ${errorData.error || 'Unknown error'}`);
+    }
+
+    const taprootInvoiceData = await taprootInvoiceResponse.json();
+    
+    // Extract the Lightning invoice from the Taproot asset response
+    const lightningInvoice = taprootInvoiceData.invoice_result?.invoice;
+    if (!lightningInvoice) {
+      throw new Error('No Lightning invoice found in Taproot asset response');
+    }
+
+    // Pay the Lightning invoice using NIP-47
+    const paymentResult = await this.executeWithRelayFallback(async () => {
+      return await this.lnClient!.pay(lightningInvoice);
+    }, 'taprootAssetPayment');
+
+    return {
+      invoice: lightningInvoice,
+      payment_hash: paymentResult.preimage || '',
+      accepted_buy_quote: taprootInvoiceData.accepted_buy_quote
+    };
+  }
+
+  // Create a Taproot asset invoice (for sellers)
+  async createTaprootAssetInvoice(assetId: string, assetAmount: string, description?: string, peerPubkey?: string): Promise<{ invoice: string; payment_hash: string; accepted_buy_quote?: Record<string, unknown> }> {
+    if (!this.nwcClient) {
+      throw new Error('NWC client not initialized. Please connect first.');
+    }
+
+    // Generate the Taproot asset invoice
+    const taprootInvoiceResponse = await fetch('/api/createInvoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        assetId,
+        assetAmount,
+        peerPubkey,
+        description
+      }),
+    });
+
+    if (!taprootInvoiceResponse.ok) {
+      const errorData = await taprootInvoiceResponse.json();
+      throw new Error(`Failed to generate Taproot asset invoice: ${errorData.error || 'Unknown error'}`);
+    }
+
+    const taprootInvoiceData = await taprootInvoiceResponse.json();
+    
+    return {
+      invoice: taprootInvoiceData.invoice_result?.invoice || '',
+      payment_hash: taprootInvoiceData.invoice_result?.payment_hash || '',
+      accepted_buy_quote: taprootInvoiceData.accepted_buy_quote
+    };
+  }
+
+  // Validate Taproot asset invoice
+  validateTaprootAssetInvoice(invoiceString: string): InvoiceInfo {
+    // First validate as a regular Lightning invoice
+    const lightningValidation = this.validateInvoice(invoiceString);
+    
+    if (!lightningValidation.valid) {
+      return lightningValidation;
+    }
+
+    // Additional Taproot asset specific validation could be added here
+    // For example, checking if the invoice contains Taproot asset routing hints
+    
+    return {
+      ...lightningValidation,
+      // Add Taproot asset specific flags if needed
+    };
+  }
+
   // Execute operation with relay fallback and timeout handling
   private async executeWithRelayFallback<T>(
     operation: () => Promise<T>, 
