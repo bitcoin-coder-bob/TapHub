@@ -57,24 +57,34 @@ class AuthService {
     try {
       this.setConnectionState('connecting');
       
+      // Try to load existing user first
+      const existingUser = this.loadUserFromStorage();
+      
       // Mock connection for demo purposes
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const username = this.extractUsernameFromCredentials(credentials);
-      
-      const user: User = {
-        type: 'user',
-        pubkey: this.generateMockPubkey(),
-        alias: username,
-        isNodeRunner: false
-      };
+      if (existingUser) {
+        // Use existing user data if available
+        this.currentUser = existingUser;
+      } else {
+        // Create new user if no existing data
+        const username = this.extractUsernameFromCredentials(credentials);
+        
+        const user: User = {
+          type: 'user',
+          pubkey: this.generateMockPubkey(),
+          alias: username,
+          isNodeRunner: false
+        };
 
-      this.currentUser = user;
-      this.saveUserToStorage(user);
+        this.currentUser = user;
+        this.saveUserToStorage(user);
+      }
+      
       this.saveCredentials(credentials);
       this.setConnectionState('connected');
       
-      return user;
+      return this.currentUser;
     } catch (error) {
       console.error('Failed to connect:', error);
       this.setConnectionState('disconnected');

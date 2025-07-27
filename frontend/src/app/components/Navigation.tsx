@@ -92,12 +92,22 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
     setIsReconnecting(true);
     try {
       const credentials = auth.getStoredCredentials();
-      if (credentials) {
-        await auth.connectWithCredentials(credentials);
-        await fetchBalance();
+      if (!credentials) {
+        console.error('No stored credentials found');
+        setBalanceError('No credentials found');
+        return;
       }
+      
+      await auth.connectWithCredentials(credentials);
+      
+      // Wait a bit for connection to stabilize before fetching balance
+      setTimeout(async () => {
+        await fetchBalance();
+      }, 100);
+      
     } catch (error) {
       console.error('Reconnection failed:', error);
+      setBalanceError('Reconnection failed');
     } finally {
       setIsReconnecting(false);
     }
