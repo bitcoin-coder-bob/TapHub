@@ -41,6 +41,7 @@ class AuthService {
   };
   private connectionState: ConnectionState = 'disconnected';
   private connectionStateListeners: ((state: ConnectionState) => void)[] = [];
+  private userStateListeners: ((user: User | null) => void)[] = [];
 
   private constructor() {
     this.initializeNetwork();
@@ -83,6 +84,7 @@ class AuthService {
       
       this.saveCredentials(credentials);
       this.setConnectionState('connected');
+      this.notifyUserStateListeners(this.currentUser);
       
       return this.currentUser;
     } catch (error) {
@@ -126,6 +128,7 @@ class AuthService {
       this.currentUser = user;
       this.saveUserToStorage(user);
       this.setConnectionState('connected');
+      this.notifyUserStateListeners(this.currentUser);
       
       return user;
     } catch (error) {
@@ -242,6 +245,7 @@ class AuthService {
   logout(): void {
     this.currentUser = null;
     this.setConnectionState('disconnected');
+    this.notifyUserStateListeners(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('taphub_user');
       localStorage.removeItem('taphub_credentials');
@@ -362,7 +366,7 @@ class AuthService {
     return this.connectionState;
   }
 
-  private setConnectionState(state: ConnectionState): void {
+  setConnectionState(state: ConnectionState): void {
     if (this.connectionState !== state) {
       this.connectionState = state;
       this.notifyConnectionStateListeners(state);
@@ -376,8 +380,19 @@ class AuthService {
     };
   }
 
+  onUserStateChange(listener: (user: User | null) => void): () => void {
+    this.userStateListeners.push(listener);
+    return () => {
+      this.userStateListeners = this.userStateListeners.filter(l => l !== listener);
+    };
+  }
+
   private notifyConnectionStateListeners(state: ConnectionState): void {
     this.connectionStateListeners.forEach(listener => listener(state));
+  }
+
+  private notifyUserStateListeners(user: User | null): void {
+    this.userStateListeners.forEach(listener => listener(user));
   }
 
   validateInvoice(invoiceString: string): InvoiceInfo {

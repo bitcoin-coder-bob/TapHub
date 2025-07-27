@@ -10,11 +10,12 @@ interface NavigationProps {
   onNavigate: (page: string) => void;
   user?: AuthUser | null;
   onLogout?: () => void;
+  onUserChange?: (user: AuthUser | null) => void;
 }
 
 
 
-export function Navigation({ currentPage, onNavigate, user, onLogout }: NavigationProps) {
+export function Navigation({ currentPage, onNavigate, user, onLogout, onUserChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
@@ -91,14 +92,36 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
   const handleReconnectWallet = async () => {
     setIsReconnecting(true);
     try {
-      const credentials = auth.getStoredCredentials();
-      if (!credentials) {
-        console.error('No stored credentials found');
-        setBalanceError('No credentials found');
+      // Try to get stored user first - if user exists but connection is lost, we can restore
+      const storedUser = auth.getCurrentUser();
+      if (storedUser) {
+        // Just update connection state and user state
+        auth.setConnectionState('connected');
+        if (onUserChange) {
+          onUserChange(storedUser);
+        }
+        
+        // Fetch balance to verify connection works
+        setTimeout(async () => {
+          await fetchBalance();
+        }, 100);
         return;
       }
       
-      await auth.connectWithCredentials(credentials);
+      // Fallback to credential-based reconnection
+      const credentials = auth.getStoredCredentials();
+      if (!credentials) {
+        console.error('No stored credentials found');
+        setBalanceError('Please sign in again');
+        return;
+      }
+      
+      const reconnectedUser = await auth.connectWithCredentials(credentials);
+      
+      // Notify parent component about user state change
+      if (onUserChange) {
+        onUserChange(reconnectedUser);
+      }
       
       // Wait a bit for connection to stabilize before fetching balance
       setTimeout(async () => {

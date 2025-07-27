@@ -20,13 +20,20 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing authentication on mount
+  // Check for existing authentication on mount and listen for user state changes
   useEffect(() => {
     const currentUser = auth.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
     }
     setIsLoading(false);
+
+    // Subscribe to user state changes
+    const unsubscribe = auth.onUserStateChange((user) => {
+      setUser(user);
+    });
+
+    return unsubscribe;
   }, []);
 
   const navigate = (page: string, params: Record<string, unknown> = {}) => {
@@ -121,6 +128,7 @@ export default function App() {
         onNavigate={navigate}
         user={user}
         onLogout={handleLogout}
+        onUserChange={setUser}
       />
       <ErrorBoundary>
         <main>{renderPage()}</main>
