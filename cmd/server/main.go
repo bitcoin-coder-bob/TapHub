@@ -41,6 +41,7 @@ var lndtTlsCertPath string
 var lndMacaroonPath string
 var network string
 var apiNinjaKey string
+var enableRfq bool
 
 // go run main.go  -port=8085 -rpcserverLnd=127.0.0.1:10001 -rpcserverTap=127.0.0.1:12029 -tap-tlscertPath=/home/bob/.polar/networks/3/volumes/tapd/alice-tap/tls.cert -tap-macaroonPath=/home/bob/.polar/networks/3/volumes/tapd/alice-tap/data/regtest/admin.macaroon -lnd-tlscertPath=/home/bob/.polar/networks/3/volumes/lnd/alice/tls.cert -lnd-macaroonPath=/home/bob/.polar/networks/3/volumes/lnd/alice/data/chain/bitcoin/regtest/admin.macaroon -network=regtest -apiNinjaKey
 
@@ -56,6 +57,8 @@ func setFlags() {
 	flag.StringVar(&lndMacaroonPath, "lnd-macaroonPath", "/home/bob/.lnd/data/chain/bitcoin/testnet4/admin.macaroon", "path to lnd macaroon")
 	flag.StringVar(&network, "network", "testnet4", "which lightning network")
 	flag.StringVar(&apiNinjaKey, "apiNinjaKey", "", "api key for api-ninjas.com")
+	flag.BoolVar(&enableRfq, "enableRfq", false, "enables RFQ oracle to run")
+
 	flag.Parse()
 }
 
@@ -69,12 +72,19 @@ func main() {
 	fmt.Printf("lndtTlsCertPath: %s\n", lndtTlsCertPath)
 	fmt.Printf("lndMacaroonPath: %s\n", lndMacaroonPath)
 	fmt.Printf("network: %s\n", network)
-
-	oracle, err := rfq.NewOracle()
-	if err != nil {
-		panic(err)
+	var oracle *rfq.MarketDataConfig
+	var err error
+	if enableRfq {
+		oracle, err = rfq.NewOracle()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		oracle = &rfq.MarketDataConfig{}
+		oracle.ProxyListenAddress = ""
+		oracle.ServiceListenAddress = ""
+		fmt.Printf("\n\nRFQ disabled\n\n")
 	}
-
 	tapConn, err := setupNodeConn(rpcServerTap, tapMacaroonPath, tapTlsCertPath, "", "")
 	if err != nil {
 		fmt.Println("error setting up tap connection: ", err)
@@ -103,7 +113,7 @@ func main() {
 
 	uc := universerpc.NewUniverseClient(tapConn)
 
-	apiHandler, err := api.New(ln, tc, uc, oracle.ProxyListenAddress, oracle.ServiceListenAddress)
+	apiHandler, err := api.New(ln, tc, uc, oracle.ProxyListenAddress, oracle.ServiceListenAddress, enableRfq)
 	if err != nil {
 		fmt.Println("error setting up api: ", err)
 		return

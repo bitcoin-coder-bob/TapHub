@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -53,16 +54,21 @@ func newProxy(target string, prefix string) (*proxy, error) {
 	return &proxy{p}, nil
 }
 
-func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsClient, universeClient universerpc.UniverseClient, oracleWeb, oracle string) (*Handler, error) {
+func New(lightningClient lnrpc.LightningClient, tapClient taprpc.TaprootAssetsClient, universeClient universerpc.UniverseClient, oracleWeb, oracle string, enableRfq bool) (*Handler, error) {
+	fmt.Printf("inside api new\n")
+	var o *proxy
+	var orc *rfq.RpcPriceOracle
+	var err error
+	if enableRfq {
+		o, err = newProxy("https://"+oracleWeb, "/v1/oracle/proxy")
+		if err != nil {
+			return nil, err
+		}
 
-	o, err := newProxy("https://"+oracleWeb, "/v1/oracle/proxy")
-	if err != nil {
-		return nil, err
-	}
-
-	orc, err := rfq.NewRpcPriceOracle("rfqrpc://"+oracle, false)
-	if err != nil {
-		return nil, err
+		orc, err = rfq.NewRpcPriceOracle("rfqrpc://"+oracle, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Handler{
