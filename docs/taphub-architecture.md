@@ -18,7 +18,7 @@ graph TB
     subgraph "Lightning Network"
         ALICE[Alice Node<br/>Has Sats, Wants Assets]
         BOB[Bob Node<br/>Edge Node Has BobBux]
-        NODE_C[Node C<br/>Has USD Token @ 95 sats/unit]
+        NODE_C[Node C<br/>Has USD Token at 95 sats/unit]
     end
 
     subgraph "Blockchain"
