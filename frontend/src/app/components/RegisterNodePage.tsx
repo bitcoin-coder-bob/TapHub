@@ -70,7 +70,7 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
       }
       
       onLogin('node', nodeUser);
-      onNavigate('dashboard');
+      onNavigate('discover');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to register node');
     } finally {
