@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withMongoConnection } from "../../../utils/mongoUtils";
 import mongo from "mongodb";
 
 export async function POST(request: NextRequest) {
-  let client: mongo.MongoClient | null = null;
-  
   try {
-    client = new mongo.MongoClient(process.env.MONGODB_URI!);
-    await client.connect();
-
-    const db = client.db("nodes");
-    const collection = db.collection("nodeAssets");
-
     const body = await request.json();
     
     // Validate required fields
@@ -21,35 +14,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if assets for this node already exist
-    const existingAssets = await collection.findOne({ nodePubkey: body.nodePubkey });
-    
-    let result;
-    if (existingAssets) {
-      // Update existing assets
-      result = await collection.updateOne(
-        { nodePubkey: body.nodePubkey },
-        { 
-          $set: { 
+    const result = await withMongoConnection(async (db) => {
+      const collection = db.collection("nodeAssets");
+
+      // Check if assets for this node already exist
+      const existingAssets = await collection.findOne({ nodePubkey: body.nodePubkey });
+      
+      if (existingAssets) {
+        // Update existing assets
+        return {
+          type: 'update' as const,
+          result: await collection.updateOne(
+            { nodePubkey: body.nodePubkey },
+            { 
+              $set: { 
+                assets: body.assets,
+                updatedAt: new Date()
+              }
+            }
+          )
+        };
+      } else {
+        // Insert new assets
+        return {
+          type: 'insert' as const,
+          result: await collection.insertOne({
+            nodePubkey: body.nodePubkey,
             assets: body.assets,
+            createdAt: new Date(),
             updatedAt: new Date()
-          }
-        }
-      );
-    } else {
-      // Insert new assets
-      result = await collection.insertOne({
-        nodePubkey: body.nodePubkey,
-        assets: body.assets,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-    }
+          })
+        };
+      }
+    });
 
     return NextResponse.json({
       success: true,
-      result,
-      message: existingAssets ? "Assets updated successfully" : "Assets saved successfully"
+      result: result.result,
+      message: result.type === 'update' ? "Assets updated successfully" : "Assets saved successfully"
     });
   } catch (error) {
     console.error("Error saving node assets:", error);
@@ -57,13 +59,5 @@ export async function POST(request: NextRequest) {
       { error: "Failed to save node assets" },
       { status: 500 }
     );
-  } finally {
-    if (client) {
-      try {
-        await client.close();
-      } catch (closeError) {
-        console.error("Error closing MongoDB connection:", closeError);
-      }
-    }
   }
 } 
