@@ -82,6 +82,74 @@ class AuthService {
     }
   }
 
+  async authenticateWithSignature(message: string, signature: string): Promise<User> {
+    try {
+      this.setConnectionState('connecting');
+      
+      // Call the verification API
+      const response = await fetch('/api/verifyMessage', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message, signature }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Verification failed');
+      }
+
+      const result = await response.json();
+      
+      if (!result.verified) {
+        throw new Error('Message verification failed');
+      }
+
+      const user: User = {
+        type: 'user',
+        pubkey: result.pubkey,
+        alias: result.alias,
+        isNodeRunner: false
+      };
+
+      this.currentUser = user;
+      this.saveUserToStorage(user);
+      this.setConnectionState('connected');
+      
+      return user;
+    } catch (error) {
+      console.error('Failed to authenticate:', error);
+      this.setConnectionState('disconnected');
+      throw new Error(error instanceof Error ? error.message : 'Authentication failed');
+    }
+  }
+
+  async generateChallenge(): Promise<{ challenge: string; message: string }> {
+    try {
+      const response = await fetch('/api/generateChallenge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate challenge');
+      }
+
+      const result = await response.json();
+      return {
+        challenge: result.challenge,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('Failed to generate challenge:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to generate challenge');
+    }
+  }
+
   async registerAsNode(data: NodeRegistrationData): Promise<User> {
     try {
       const nodeUser: User = {
