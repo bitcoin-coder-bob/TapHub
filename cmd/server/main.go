@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 
-
 	"github.com/lightningnetwork/lnd/lnrpc"
 
 	"github.com/lightninglabs/taproot-assets/taprpc"
@@ -96,19 +95,17 @@ func main() {
 	}
 
 	ln := lnrpc.NewLightningClient(lndConn)
-	info, err := ln.GetInfo(context.Background(), &lnrpc.GetInfoRequest{})
+	_, err = ln.GetInfo(context.Background(), &lnrpc.GetInfoRequest{})
 	if err != nil {
 		fmt.Println("error getting lnd info: ", err)
 		return
 	}
-	fmt.Printf("LND info: %s\n", info.Alias)
 	tc := taprpc.NewTaprootAssetsClient(tapConn)
-	info2, err := tc.GetInfo(context.Background(), &taprpc.GetInfoRequest{})
+	_, err = tc.GetInfo(context.Background(), &taprpc.GetInfoRequest{})
 	if err != nil {
 		fmt.Println("error getting tap info: ", err)
 		return
 	}
-	fmt.Printf("TAPD info: %s\n", info2)
 
 	uc := universerpc.NewUniverseClient(tapConn)
 

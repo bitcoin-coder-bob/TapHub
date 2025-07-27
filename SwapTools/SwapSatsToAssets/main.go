@@ -94,16 +94,6 @@ func setFlags() {
 
 func main() {
 	setFlags()
-	fmt.Printf("rpcserverLnd: %s\n", rpcServerLnd)
-	fmt.Printf("rpcServerTap: %s\n", rpcServerTap)
-	fmt.Printf("tapTlsCertPath: %s\n", tapTlsCertPath)
-	fmt.Printf("tapMacaroonPath: %s\n", tapMacaroonPath)
-	fmt.Printf("lndtTlsCertPath: %s\n", lndtTlsCertPath)
-	fmt.Printf("lndMacaroonPath: %s\n", lndMacaroonPath)
-	fmt.Printf("assetId: %s\n", assetId)
-	fmt.Printf("peerPk: %s\n", peerPk)
-	fmt.Printf("rfqAddr: %s\n", rfqAddr)
-	fmt.Printf("network: %s\n", network)
 	tapConn, err := setupNodeConn(rpcServerTap, tapMacaroonPath, tapTlsCertPath, "", "")
 	if err != nil {
 		fmt.Println("error setting up tap connection: ", err)
@@ -116,19 +106,18 @@ func main() {
 	}
 
 	ln := lnrpc.NewLightningClient(lndConn)
-	info, err := ln.GetInfo(context.Background(), &lnrpc.GetInfoRequest{})
+	_, err = ln.GetInfo(context.Background(), &lnrpc.GetInfoRequest{})
 	if err != nil {
 		fmt.Println("error getting lnd info: ", err)
 		return
 	}
-	fmt.Printf("LND info: %s\n", info.Alias)
+
 	tc := taprpc.NewTaprootAssetsClient(tapConn)
-	tapInfo, err := tc.GetInfo(context.Background(), &taprpc.GetInfoRequest{})
+	_, err = tc.GetInfo(context.Background(), &taprpc.GetInfoRequest{})
 	if err != nil {
 		fmt.Println("error getting tap info: ", err)
 		return
 	}
-	fmt.Printf("TAPD info: %s\n", tapInfo)
 
 	rc := routerrpc.NewRouterClient(lndConn)
 
@@ -170,7 +159,7 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		fmt.Printf("error listing eligible channels to send sats: %s", err.Error())
 		return err
 	}
-	fmt.Printf("eligible chan ids: %v\n", eligibleChannels)
+
 	assetHex, err := hex.DecodeString(assetId)
 	if err != nil {
 		return err
@@ -185,7 +174,6 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 	// if err != nil {
 	// 	panic(err)
 	// }
-	fmt.Printf("did query ask price\n")
 	cc1, err := lc.ListChannels(context.Background(), &lnrpc.ListChannelsRequest{})
 	if err != nil {
 		fmt.Printf("error listing channels 1: %s", err.Error())
@@ -199,11 +187,11 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 				return err
 			}
 			scid1 := lnwire.NewShortChanIDFromInt(ch.ChanId)
-			fmt.Printf("checking local bal before (asset): scid: %s chid: %d cp: %s  local bal: %d  remote bal: %d    asset bal:%d private: %t\n", scid1, ch.ChanId, ch.ChannelPoint, ch.LocalBalance, ch.RemoteBalance, customChannelJson.LocalBalance, ch.Private)
+			fmt.Printf("Local bal before (asset): scid: %s chid: %d cp: %s  local bal: %d  remote bal: %d    asset bal:%d private: %t\n", scid1, ch.ChanId, ch.ChannelPoint, ch.LocalBalance, ch.RemoteBalance, customChannelJson.LocalBalance, ch.Private)
 		} else {
-			scid1 := lnwire.NewShortChanIDFromInt(ch.ChanId)
+			// scid1 := lnwire.NewShortChanIDFromInt(ch.ChanId)
 
-			fmt.Printf("checking local bal before (sats): scid: %s  chid: %d cp: %s   local bal: %d   remote bal: %d\n", scid1, ch.ChanId, ch.ChannelPoint, ch.LocalBalance, ch.RemoteBalance)
+			// fmt.Printf("Local bal before (sats): scid: %s  chid: %d cp: %s   local bal: %d   remote bal: %d\n", scid1, ch.ChanId, ch.ChannelPoint, ch.LocalBalance, ch.RemoteBalance)
 		}
 	}
 
@@ -235,16 +223,15 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 	scidToUse := uint64(0)
 	for _, alias := range aliases.AliasMaps {
 		if alias.BaseScid == eligibleAssetChannels[0] {
-			fmt.Printf("all scids: %v\n", alias.Aliases)
 			candidateScid := alias.Aliases[len(alias.Aliases)-1]
 			if candidateScid > scidToUse {
 				scidToUse = candidateScid
 			}
 		}
 	}
-	fmt.Printf("using scid for route hint of taproot asset channel: %d\n", scidToUse)
+	// fmt.Printf("using scid for route hint of taproot asset channel: %d\n", scidToUse)
 	// unitsRequestingFromSwap := SatsRateToAsset(res.AssetRate.Rate, float64(assetUnitsToGet), 0)
-	fmt.Printf("unitsRequestingFromSwap setting on asset invoice: %d\n", assetUnitsToGet)
+	// fmt.Printf("unitsRequestingFromSwap setting on asset invoice: %d\n", assetUnitsToGet)
 	paymentRequest, err := tac.AddInvoice(context.TODO(), &tapchannelrpc.AddInvoiceRequest{
 		AssetId:     assetHex,
 		AssetAmount: uint64(assetUnitsToGet),
@@ -259,8 +246,6 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		fmt.Printf("error generating asset invoice: %s", err.Error())
 		return err
 	}
-	fmt.Printf("scid used in accepted buy quote: %d\n", paymentRequest.AcceptedBuyQuote.Scid)
-	fmt.Printf("invoice payment request str: %s\n", paymentRequest.InvoiceResult.PaymentRequest)
 	lookedupInvoice, err := lc.LookupInvoice(context.TODO(), &lnrpc.PaymentHash{RHash: paymentRequest.InvoiceResult.RHash})
 	if err != nil {
 		fmt.Printf("error looking up invoice: %s\n", err.Error())
@@ -269,7 +254,6 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 	fmt.Printf("old scid used: %d  but now updating to: %d\n", scidToUse, paymentRequest.AcceptedBuyQuote.Scid)
 	scidToUse = paymentRequest.AcceptedBuyQuote.Scid
 	fmt.Printf("value: %d\n", lookedupInvoice.Value)
-	fmt.Printf("\n\n\n\n\n----------------about to kick off payment------------\n\n\n\n")
 
 	paymentClient, err := rc.SendPaymentV2(
 		context.TODO(), &routerrpc.SendPaymentRequest{
@@ -304,10 +288,8 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 	}
 	fmt.Printf("\npayment succeeded with fee: %d status: %s\n", payment.FeeMsat, payment.Status.String())
 	time.Sleep(time.Second * 5)
-	fmt.Printf("ASSET ID USED: %s\n", assetId)
 	// fmt.Printf("\nproposed first hop: %d\n", eligibleChannels[0])
 	// fmt.Printf("proposed last hop: %d\n", eligibleAssetChannels[0])
-	fmt.Printf("\nproposed hop: (scid): %d  chid: %d\n", scidToUse, eligibleAssetChannels[0])
 
 	ch, err := lc.ListChannels(context.Background(), &lnrpc.ListChannelsRequest{})
 	assetChid := uint64(0)
@@ -321,11 +303,11 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 			break
 		}
 	}
-	fmt.Printf("asset chid: %d\n", assetChid)
+
 	for htlcIndex, htlc := range payment.Htlcs {
 		route := htlc.Route
 		for hopIndex, hop := range route.Hops {
-			fmt.Printf("hop taken chid: %d pubkey:%s  assetChan: %t  htlcIndex: %d  hopIndex: %d\n", hop.ChanId, hop.PubKey, hop.ChanId == assetChid, htlcIndex, hopIndex)
+			fmt.Printf("hop taken chanId: %d pubkey:%s  assetChan: %t  htlcIndex: %d  hopIndex: %d\n\n", hop.ChanId, hop.PubKey, hop.ChanId == assetChid, htlcIndex, hopIndex)
 			// if index == 1 {
 			// 	scid := lnwire.NewShortChanIDFromInt(hop.ChanId)
 			// 	fmt.Printf("hop taken scid: %s\n", scid.String())
@@ -347,18 +329,10 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 		return err
 	}
 
-	for _, alias := range aliases.AliasMaps {
-		for _, aliasInt := range alias.Aliases {
-			fmt.Printf("base scid: %d  alias: %d\n", alias.BaseScid, aliasInt)
-		}
-	}
-	fmt.Println("")
-
 	inv := &lnrpc.Invoice{}
 
 	// check the state of the invoice, sleep until its resolved
 	for {
-		fmt.Printf("checking invoice state...\n")
 		inv, err = lc.LookupInvoice(context.TODO(), &lnrpc.PaymentHash{RHashStr: payment.PaymentHash})
 		if err != nil {
 			fmt.Printf("error looking up invoice: %v\n", err)
@@ -369,7 +343,6 @@ func SwapSatsToAsset(lc lnrpc.LightningClient, tc taprpc.TaprootAssetsClient, rc
 			time.Sleep(time.Second * 5)
 			continue
 		} else if inv.State == lnrpc.Invoice_SETTLED {
-			fmt.Printf("invoice was settled\n")
 			break
 		} else if inv.State == lnrpc.Invoice_CANCELED {
 			fmt.Printf("invoice was canceled\n")
