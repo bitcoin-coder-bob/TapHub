@@ -39,14 +39,14 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
   const [userPubkey, setUserPubkey] = useState<string>("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Get user's Alby pubkey
+  // Get user's pubkey
   useEffect(() => {
     const user = auth.getCurrentUser();
     if (user && user.pubkey) {
       setUserPubkey(user.pubkey);
       setIsAuthenticated(true);
     } else {
-      setError("Please connect your Alby wallet to view asset details");
+      setError("Please connect your wallet to view asset details");
       setIsLoading(false);
     }
   }, []);
@@ -66,18 +66,19 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
 
         const response = await fetch(`/api/verfiedNodes/getNodeAssets?nodePubkey=${nodePubkey}`);
         
-        if (response.status === 404) {
-          // No nodes registered in DB - show empty state
-          setError('no-assets-registered');
-          setIsLoading(false);
-          return;
-        }
-        
         if (!response.ok) {
           throw new Error('Failed to fetch asset details');
         }
 
         const nodeAssets: NodeAsset = await response.json();
+        
+        // Check if node has any assets
+        if (!nodeAssets.assets || nodeAssets.assets.length === 0) {
+          setError('no-assets-registered');
+          setIsLoading(false);
+          return;
+        }
+        
         const foundAsset = nodeAssets.assets.find(a => a.id === assetId);
 
         if (!foundAsset) {
@@ -159,13 +160,13 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
           </div>
           <h3 className="mb-2">Wallet Connection Required</h3>
           <p className="text-muted-foreground mb-6">
-            Please connect your Alby wallet to view asset details and check channel status
+            Please connect your wallet to view asset details and check channel status
           </p>
           <button
             onClick={handleConnectWallet}
             className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
           >
-            Connect Alby Wallet
+            Connect Wallet
           </button>
         </div>
       </div>
@@ -206,7 +207,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
             </button>
             <button
               className="px-4 py-2 border border-border hover:bg-accent rounded-lg transition-colors"
-              onClick={() => onNavigate("asset-discovery")}
+              onClick={() => onNavigate("discover")}
             >
               Back to Discovery
             </button>
@@ -227,7 +228,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
           <p className="text-muted-foreground mb-6">{error || 'Asset not found'}</p>
           <button
             className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
-            onClick={() => onNavigate("asset-discovery")}
+            onClick={() => onNavigate("discover")}
           >
             Back to Assets
           </button>
@@ -242,7 +243,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Back Button */}
       <button
-        onClick={() => onNavigate("asset-discovery")}
+        onClick={() => onNavigate("discover")}
         className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -327,7 +328,7 @@ export function AssetDetailPage({ onNavigate, assetId, nodePubkey }: AssetDetail
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Your Alby Public Key</p>
+            <p className="text-sm text-muted-foreground mb-1">Your Public Key</p>
             <p className="font-mono text-sm break-all bg-accent/50 p-2 rounded">
               {userPubkey}
             </p>

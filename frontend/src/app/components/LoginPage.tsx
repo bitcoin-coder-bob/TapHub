@@ -74,7 +74,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
     }
   };
 
-  const handleAlbyLogin = async (e: React.FormEvent) => {
+  const handleWalletLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -245,7 +245,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         </div>
 
         {/* Authentication Form */}
-        <form onSubmit={authType === 'user' ? handleAlbyLogin : handleNodeRegistration} className="space-y-4">
+        <form onSubmit={authType === 'user' ? handleWalletLogin : handleNodeRegistration} className="space-y-4">
           {authType === 'user' && authMethod === 'signature' ? (
             // Signature-based authentication form
             <>

@@ -110,7 +110,7 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
                   <div>
                     <h3 className="font-medium">Nostr Wallet Connect</h3>
                     <p className="text-sm text-muted-foreground">
-                      NWC credentials to connect your node to Alby
+                      NWC credentials to connect your node
                     </p>
                   </div>
                 </div>
@@ -132,15 +132,15 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <h3 className="font-medium mb-2">1. Get NWC Credentials</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Connect your Lightning node to Alby Hub to get Nostr Wallet Connect credentials.
+                    Connect your Lightning node to get Nostr Wallet Connect credentials.
                   </p>
                   <a 
-                    href="https://nwc.getalby.com/" 
+                    href="https://nwc.dev/" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-primary hover:underline text-sm"
                   >
-                    Visit Alby Hub
+                    Visit NWC Documentation
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
@@ -227,7 +227,7 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Get your NWC credentials from Alby Hub or your Lightning node
+              Get your NWC credentials from your Lightning node
             </p>
           </div>
 

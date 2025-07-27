@@ -19,10 +19,13 @@ export async function GET(request: NextRequest) {
     });
 
     if (!nodeAssets) {
-      return NextResponse.json(
-        { error: "No assets found for this node" },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        nodePubkey: nodePubkey,
+        assets: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
     }
 
     return NextResponse.json({

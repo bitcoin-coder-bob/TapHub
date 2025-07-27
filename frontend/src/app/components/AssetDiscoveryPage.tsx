@@ -65,27 +65,28 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
             if (assetsResponse.ok) {
               const nodeAssets: NodeAsset = await assetsResponse.json();
               
-              // Add node information to each asset
-              const assetsWithNode = nodeAssets.assets.map(asset => ({
-                ...asset,
-                nodePubkey: nodeAssets.nodePubkey,
-                nodeName: `Node ${nodeAssets.nodePubkey.slice(0, 8)}...`,
-                nodeRating: 4.5, // Default rating - could be fetched from node profile
-                nodeTrades: Math.floor(Math.random() * 500) + 50 // Mock trades count
-              }));
-              
-              allAssets.push(...assetsWithNode);
+              // Only add assets if the node has any
+              if (nodeAssets.assets && nodeAssets.assets.length > 0) {
+                // Add node information to each asset
+                const assetsWithNode = nodeAssets.assets.map(asset => ({
+                  ...asset,
+                  nodePubkey: nodeAssets.nodePubkey,
+                  nodeName: `Node ${nodeAssets.nodePubkey.slice(0, 8)}...`,
+                  nodeRating: 4.5, // Default rating - could be fetched from node profile
+                  nodeTrades: Math.floor(Math.random() * 500) + 50 // Mock trades count
+                }));
+                
+                allAssets.push(...assetsWithNode);
+              }
             }
-            // Silently ignore 404s - it just means the node has no assets
           } catch (error) {
-            // Only log unexpected errors, not 404s
-            console.error(`Unexpected error fetching assets for node ${nodePubkey}:`, error);
+            // Silently handle unexpected errors
           }
         }
 
         setAssets(allAssets);
       } catch (error) {
-        console.error('Error fetching assets:', error);
+        // Error handled silently
         setError('Failed to load assets');
       } finally {
         setIsLoading(false);
