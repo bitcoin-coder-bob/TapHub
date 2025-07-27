@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowUpRight, ArrowDownLeft, Clock, RefreshCw } from "lucide-react";
 import { albyAuth } from "../services/albyAuth";
 import { ErrorDisplay, useErrorRecovery } from "./ErrorBoundary";
@@ -25,34 +25,77 @@ interface TransactionHistoryProps {
 export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const { 
-    error, 
-    handleError, 
-    clearError, 
-    retryWithRecovery, 
-    reconnectWallet,
-    getErrorType 
-  } = useErrorRecovery();
+  const [error, setError] = useState<Error | null>(null);
+  const [connectionState, setConnectionState] = useState(albyAuth.getConnectionState());
+  const isFetchingRef = useRef(false);
+
+  console.log('TransactionHistory: Render - isLoading:', isLoading, 'connectionState:', connectionState, 'transactions:', transactions.length, 'error:', error?.message);
 
   const fetchTransactions = useCallback(async () => {
+    // Prevent multiple concurrent fetches
+    if (isFetchingRef.current) {
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    
     try {
       setIsLoading(true);
-      clearError();
+      setError(null);
       
+      console.log('TransactionHistory: Starting fetch...');
       const txHistory = await albyAuth.getTransactions();
+      console.log('TransactionHistory: Fetch completed, got', txHistory.length, 'transactions');
+      
+      console.log('TransactionHistory: Setting transactions');
       setTransactions(txHistory as Transaction[]);
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
-      handleError(err as Error);
+      setError(err as Error);
     } finally {
+      console.log('TransactionHistory: Setting loading to false');
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
-  }, [clearError, handleError]);
+  }, []); // Remove all dependencies to prevent recreations
 
   useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+    console.log('TransactionHistory: useEffect running');
+    
+    // Only fetch transactions if user is authenticated and connected
+    const currentConnectionState = albyAuth.getConnectionState();
+    console.log('TransactionHistory: Current connection state:', currentConnectionState);
+    setConnectionState(currentConnectionState);
+    
+    if (currentConnectionState === 'connected') {
+      console.log('TransactionHistory: Connection is connected, fetching transactions');
+      fetchTransactions();
+    } else if (currentConnectionState === 'disconnected') {
+      console.log('TransactionHistory: Connection is disconnected, setting loading to false');
+      setIsLoading(false);
+    }
+    
+    // Subscribe to connection state changes
+    const unsubscribe = albyAuth.onConnectionStateChange((state) => {
+      console.log('TransactionHistory: Connection state changed to:', state);
+      setConnectionState(state);
+      
+      // Only fetch if we transition to connected
+      if (state === 'connected') {
+        console.log('TransactionHistory: State changed to connected, fetching transactions');
+        fetchTransactions();
+      } else if (state === 'disconnected') {
+        console.log('TransactionHistory: State changed to disconnected, setting loading to false');
+        setIsLoading(false);
+      }
+    });
+    
+    // Cleanup on unmount
+    return () => {
+      console.log('TransactionHistory: Cleaning up');
+      unsubscribe();
+    };
+  }, []); // Remove fetchTransactions dependency to prevent infinite loops
 
   const formatAmount = (amount?: number): string => {
     if (!amount) return '0 sats';
@@ -110,9 +153,7 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
     return { text: 'Unknown', color: 'text-gray-500' };
   };
 
-  if (error) {
-    const errorType = getErrorType(error);
-    
+  if (error && connectionState !== 'connecting') {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
@@ -126,11 +167,25 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
           <p className="text-muted-foreground">Your recent Lightning Network transactions</p>
         </div>
 
-        <ErrorDisplay
-          error={error}
-          onRetry={() => retryWithRecovery(fetchTransactions)}
-          onReconnect={errorType === 'connection' ? reconnectWallet : undefined}
-        />
+        <div className="text-center py-12">
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md mx-auto">
+            <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">
+              Failed to load transactions
+            </h3>
+            <p className="text-red-600 dark:text-red-300 text-sm mb-4">
+              {error.message}
+            </p>
+            <button
+              onClick={() => {
+                setError(null);
+                fetchTransactions();
+              }}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -160,7 +215,15 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
         </div>
       </div>
 
-      {isLoading ? (
+      {connectionState === 'connecting' ? (
+        <div className="text-center py-12">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h3 className="text-lg font-medium mb-2">Connecting to wallet...</h3>
+          <p className="text-muted-foreground">
+            Establishing connection with your Lightning wallet
+          </p>
+        </div>
+      ) : isLoading ? (
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="animate-pulse">

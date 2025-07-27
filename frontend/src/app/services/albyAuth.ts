@@ -69,6 +69,9 @@ class AlbyAuthService {
   private relays: RelayInfo[] = [];
   private currentRelayIndex = 0;
   private maxRelayRetries = 3;
+  private operationDebounceMap = new Map<string, NodeJS.Timeout>();
+  private isInitializing = false;
+  private initializationPromise: Promise<void> | null = null;
 
   private constructor() {
     this.initializeNetwork();
@@ -253,6 +256,9 @@ class AlbyAuthService {
 
   // Get wallet balance
   async getBalance(): Promise<number> {
+    // Wait for client to be ready if it's initializing
+    await this.waitForClientReady();
+    
     if (!this.nwcClient) {
       throw new Error('NWC client not initialized. Please connect first.');
     }
@@ -332,6 +338,7 @@ class AlbyAuthService {
     this.setConnectionState('disconnected');
     this.stopConnectionMonitoring();
     this.clearOperationQueue();
+    this.clearDebounceTimers();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('taphub_user');
       localStorage.removeItem('taphub_nwc_credentials');
@@ -620,19 +627,44 @@ class AlbyAuthService {
 
   // Reinitialize clients from stored credentials
   private async reinitializeClients(): Promise<void> {
+    if (this.isInitializing) {
+      return this.initializationPromise || Promise.resolve();
+    }
+
     const credentials = this.getStoredCredentials();
     if (credentials) {
-      try {
-        // Parse relays from stored credentials
-        this.parseRelayUrls(credentials);
-        
-        this.lnClient = new LN(credentials);
-        this.nwcClient = await this.createNWCClientWithFallback(credentials);
-        // Re-check permissions after reinitializing
-        this.checkPermissions().catch(console.error);
-      } catch (error) {
-        console.error('Failed to reinitialize clients:', error);
-      }
+      this.isInitializing = true;
+      this.setConnectionState('connecting');
+      
+      this.initializationPromise = (async () => {
+        try {
+          // Parse relays from stored credentials
+          this.parseRelayUrls(credentials);
+          
+          this.lnClient = new LN(credentials);
+          this.nwcClient = await this.createNWCClientWithFallback(credentials);
+          
+          // Re-check permissions after reinitializing
+          await this.checkPermissions();
+          this.setConnectionState('connected');
+        } catch (error) {
+          console.error('Failed to reinitialize clients:', error);
+          this.setConnectionState('disconnected');
+          throw error;
+        } finally {
+          this.isInitializing = false;
+          this.initializationPromise = null;
+        }
+      })();
+
+      return this.initializationPromise;
+    }
+  }
+
+  // Wait for client to be ready
+  private async waitForClientReady(): Promise<void> {
+    if (this.isInitializing && this.initializationPromise) {
+      await this.initializationPromise;
     }
   }
 
@@ -856,6 +888,13 @@ class AlbyAuthService {
     this.operationQueue = [];
   }
 
+  private clearDebounceTimers(): void {
+    this.operationDebounceMap.forEach(timeout => {
+      clearTimeout(timeout);
+    });
+    this.operationDebounceMap.clear();
+  }
+
   // Validate Lightning invoice
   validateInvoice(invoiceString: string): InvoiceInfo {
     if (!invoiceString || invoiceString.trim() === '') {
@@ -889,8 +928,11 @@ class AlbyAuthService {
     }
   }
 
-  // Get transaction history
+  // Get transaction history with debouncing
   async getTransactions(): Promise<unknown[]> {
+    // Wait for client to be ready if it's initializing
+    await this.waitForClientReady();
+    
     if (!this.nwcClient) {
       throw new Error('NWC client not initialized. Please connect first.');
     }
@@ -899,6 +941,7 @@ class AlbyAuthService {
       throw new Error('Missing permission: list_transactions. Please reconnect with transaction history permissions.');
     }
 
+    // Execute directly since components now handle debouncing
     return this.executeWithRelayFallback(async () => {
       const response = await this.nwcClient!.listTransactions({});
       // Return last 20 transactions, sorted by creation date (newest first)
@@ -933,7 +976,7 @@ class AlbyAuthService {
     }, 'makeInvoice');
   }
 
-  // Execute operation with relay fallback
+  // Execute operation with relay fallback and timeout handling
   private async executeWithRelayFallback<T>(
     operation: () => Promise<T>, 
     operationType: string
@@ -946,7 +989,13 @@ class AlbyAuthService {
       
       try {
         console.log(`Executing ${operationType} with relay: ${currentRelay.url}`);
-        const result = await operation();
+        
+        // Add operation timeout (15 seconds)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`Operation timeout after 15s`)), 15000);
+        });
+        
+        const result = await Promise.race([operation(), timeoutPromise]);
         
         // Success! Update relay performance
         currentRelay.isActive = true;
@@ -965,7 +1014,7 @@ class AlbyAuthService {
         
         console.warn(`${operationType} failed with relay ${currentRelay.url} (attempt ${attempts}/${this.maxRelayRetries}):`, error);
         
-        // If this is a connection error and we have more relays to try
+        // If this is a timeout or connection error and we have more relays to try
         if (this.isConnectionError(error) && attempts < this.maxRelayRetries && attempts < this.relays.length) {
           // Switch to next relay
           this.currentRelayIndex = (this.currentRelayIndex + 1) % this.relays.length;
@@ -974,6 +1023,8 @@ class AlbyAuthService {
           const credentials = this.getStoredCredentials();
           if (credentials) {
             try {
+              // Add a small delay before trying next relay
+              await new Promise(resolve => setTimeout(resolve, 1000));
               this.nwcClient = await this.createNWCClientWithFallback(credentials);
               this.lnClient = new LN(credentials);
               continue; // Try again with new relay
@@ -990,8 +1041,10 @@ class AlbyAuthService {
       }
     }
     
-    // All attempts failed, trigger disconnection handling
-    this.handleDisconnection();
+    // All attempts failed, only trigger disconnection handling for connection errors
+    if (lastError && this.isConnectionError(lastError)) {
+      this.handleDisconnection();
+    }
     
     throw lastError || new Error(`${operationType} failed after trying ${attempts} relays`);
   }
@@ -1004,7 +1057,9 @@ class AlbyAuthService {
            errorMessage.includes('timeout') ||
            errorMessage.includes('relay') ||
            errorMessage.includes('websocket') ||
-           errorMessage.includes('nostr');
+           errorMessage.includes('nostr') ||
+           errorMessage.includes('reply timeout') ||
+           errorMessage.includes('operation timeout');
   }
 }
 

@@ -23,11 +23,17 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
 
   useEffect(() => {
     if (user) {
-      fetchBalance();
       // Subscribe to connection state changes
       const unsubscribe = albyAuth.onConnectionStateChange(setConnectionState);
       // Get initial state
-      setConnectionState(albyAuth.getConnectionState());
+      const initialState = albyAuth.getConnectionState();
+      setConnectionState(initialState);
+      
+      // Only fetch balance if we're already connected, otherwise wait for connection
+      if (initialState === 'connected') {
+        fetchBalance();
+      }
+      
       return unsubscribe;
     } else {
       setBalance(null);
@@ -59,12 +65,23 @@ export function Navigation({ currentPage, onNavigate, user, onLogout }: Navigati
 
   const fetchBalance = async () => {
     try {
+      // Don't try to fetch balance if not connected
+      if (connectionState === 'disconnected') {
+        setBalanceError('Wallet disconnected');
+        return;
+      }
+      
       const balanceMsat = await albyAuth.getBalance();
       setBalance(balanceMsat);
       setBalanceError(null);
     } catch (error) {
       console.error('Failed to fetch balance:', error);
-      setBalanceError('Balance unavailable');
+      // Be more specific about errors during connecting state
+      if (connectionState === 'connecting') {
+        setBalanceError('Connecting...');
+      } else {
+        setBalanceError('Balance unavailable');
+      }
     }
   };
 
