@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mongo from "mongodb";
+import { withMongoConnection } from "../../../utils/mongoUtils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,15 +13,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = new mongo.MongoClient(process.env.MONGODB_URI!);
-    await client.connect();
-
-    const db = client.db("nodes");
-    const collection = db.collection("nodeAssets");
-
-    const nodeAssets = await collection.findOne({ nodePubkey });
-
-    await client.close();
+    const nodeAssets = await withMongoConnection(async (db) => {
+      const collection = db.collection("nodeAssets");
+      return await collection.findOne({ nodePubkey });
+    });
 
     if (!nodeAssets) {
       return NextResponse.json(

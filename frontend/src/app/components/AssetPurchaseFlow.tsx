@@ -9,7 +9,8 @@ import {
   Clock,
   UserX,
 } from "lucide-react";
-import { albyAuth } from "../services/albyAuth";
+import { auth } from "../services/auth";
+import { truncateUsername } from "../utils/stringUtils";
 
 interface AssetPurchaseFlowProps {
   assetId?: string;
@@ -28,7 +29,7 @@ export function AssetPurchaseFlow({
 
   const generateInvoice = async () => {
     // Check if user is authenticated
-    const currentUser = albyAuth.getCurrentUser();
+    const currentUser = auth.getCurrentUser();
     if (!currentUser) {
       alert("Please sign in to generate invoices");
       onNavigate("login");
@@ -86,8 +87,8 @@ export function AssetPurchaseFlow({
   };
 
   // Check authentication status
-  const currentUser = albyAuth.getCurrentUser();
-  const isAuthenticated = albyAuth.isAuthenticated();
+  const currentUser = auth.getCurrentUser();
+  const isAuthenticated = auth.isAuthenticated();
 
   if (step === 1) {
     return (
@@ -211,7 +212,7 @@ export function AssetPurchaseFlow({
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       <span className="text-green-700 dark:text-green-300">
-                        Signed in as {currentUser?.alias || 'Lightning User'}
+                        Signed in as {truncateUsername(currentUser?.alias || 'Lightning User')}
                       </span>
                     </div>
                   </div>

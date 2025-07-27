@@ -1,5 +1,6 @@
-import { Plus, Package, Zap, DollarSign, ChevronDown, X } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Plus, Package, Zap, DollarSign, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { auth } from "../services/auth";
 
 interface Asset {
   id: string;
@@ -11,139 +12,194 @@ interface Asset {
   status: "Active" | "Draft";
 }
 
-interface AvailableAsset {
-  id: string;
-  name: string;
-  symbol: string;
-  totalSupply: string;
-  available: string;
-  status: string;
-}
-
 interface AssetListingDashboardProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
 export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardProps) {
   const [userAssets, setUserAssets] = useState<Asset[]>([]);
-  const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
-  const [showAssetDropdown, setShowAssetDropdown] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<AvailableAsset | null>(null);
-  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [showListingForm, setShowListingForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [listingForm, setListingForm] = useState({
+    name: "",
+    symbol: "",
     price: "",
     priceUnit: "BTC",
     available: "",
     status: "Draft" as "Active" | "Draft"
   });
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load assets from localStorage on component mount
-  useEffect(() => {
-    const savedAssets = localStorage.getItem('tapHubAssets');
-    if (savedAssets) {
-      try {
-        setUserAssets(JSON.parse(savedAssets));
-      } catch (error) {
-        console.error('Error loading assets from localStorage:', error);
-        setUserAssets([]);
-      }
+  // Check if user is authenticated and is a node runner
+  const currentUser = auth.getCurrentUser();
+  const isNodeRunner = auth.isNodeRunner();
+
+  // Get the current user's pubkey
+  const getNodePubkey = (): string => {
+    const currentUser = auth.getCurrentUser();
+    if (!currentUser || !currentUser.pubkey) {
+      throw new Error('No authenticated node runner found');
     }
-  }, []);
+    return currentUser.pubkey;
+  };
 
-  // Save assets to localStorage whenever userAssets changes
-  useEffect(() => {
-    localStorage.setItem('tapHubAssets', JSON.stringify(userAssets));
-  }, [userAssets]);
-
-  // Handle click outside dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowAssetDropdown(false);
-      }
-    };
-
-    if (showAssetDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showAssetDropdown]);
-
-  // Fetch available assets from API
-  const fetchAvailableAssets = async () => {
-    setIsLoadingAssets(true);
+  // Fetch assets from MongoDB on component mount
+  const fetchUserAssets = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/getAvailableAssets');
+      const nodePubkey = getNodePubkey();
+      console.log('Fetching assets for node:', nodePubkey);
+      
+      const response = await fetch(`/api/verfiedNodes/getNodeAssets?nodePubkey=${nodePubkey}`);
       if (response.ok) {
         const data = await response.json();
-        setAvailableAssets(data.assets || []);
+        console.log('Assets fetched successfully:', data.assets);
+        setUserAssets(data.assets || []);
+      } else if (response.status === 404) {
+        // No assets found for this node, start with empty array
+        console.log('No assets found for this node, starting with empty array');
+        setUserAssets([]);
       } else {
-        console.error('Failed to fetch available assets');
+        console.error('Failed to fetch user assets:', response.status, response.statusText);
+        setUserAssets([]);
       }
     } catch (error) {
-      console.error('Error fetching available assets:', error);
+      console.error('Error fetching user assets:', error);
+      setUserAssets([]);
     } finally {
-      setIsLoadingAssets(false);
+      setIsLoading(false);
     }
   };
 
-  const handleSelectAssetForListing = (asset: AvailableAsset) => {
-    setSelectedAsset(asset);
-    setListingForm({
-      price: "0.0001",
-      priceUnit: "BTC",
-      available: asset.available,
-      status: "Draft"
-    });
-    setShowAssetDropdown(false);
-    setShowListingForm(true);
+  // Save assets to MongoDB using existing saveNodeAssets endpoint
+  const saveUserAssets = async (assets: Asset[]) => {
+    try {
+      const nodePubkey = getNodePubkey();
+      const response = await fetch('/api/verfiedNodes/saveNodeAssets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodePubkey: nodePubkey,
+          assets: assets
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save user assets');
+        throw new Error('Failed to save assets');
+      }
+
+      const data = await response.json();
+      console.log('Assets saved successfully:', data.message);
+    } catch (error) {
+      console.error('Error saving user assets:', error);
+      throw error;
+    }
   };
 
-  const handleCreateListing = () => {
-    if (!selectedAsset || !listingForm.price || !listingForm.available) {
+  // Load assets from MongoDB on component mount
+  useEffect(() => {
+    fetchUserAssets();
+  }, []);
+
+  const handleCreateListing = async () => {
+    if (!listingForm.name || !listingForm.symbol || !listingForm.price || !listingForm.available) {
       alert('Please fill in all required fields');
       return;
     }
 
     const newListingAsset: Asset = {
       id: Date.now().toString(),
-      name: selectedAsset.name,
-      symbol: selectedAsset.symbol,
+      name: listingForm.name,
+      symbol: listingForm.symbol,
       price: listingForm.price,
       priceUnit: listingForm.priceUnit,
       available: listingForm.available,
       status: listingForm.status
     };
 
-    setUserAssets(prev => [...prev, newListingAsset]);
-    setSelectedAsset(null);
-    setShowListingForm(false);
-    setListingForm({
-      price: "",
-      priceUnit: "BTC",
-      available: "",
-      status: "Draft"
-    });
-  };
-
-  const handleDeleteAsset = (id: string) => {
-    if (confirm('Are you sure you want to delete this asset?')) {
-      setUserAssets(prev => prev.filter(asset => asset.id !== id));
+    const updatedAssets = [...userAssets, newListingAsset];
+    
+    try {
+      await saveUserAssets(updatedAssets);
+      setUserAssets(updatedAssets);
+      setShowListingForm(false);
+      setListingForm({
+        name: "",
+        symbol: "",
+        price: "",
+        priceUnit: "BTC",
+        available: "",
+        status: "Draft"
+      });
+    } catch (error) {
+      alert('Failed to save asset. Please try again.');
     }
   };
 
-  const handleEditAsset = (id: string) => {
+  const handleDeleteAsset = async (id: string) => {
+    if (confirm('Are you sure you want to delete this asset?')) {
+      const updatedAssets = userAssets.filter(asset => asset.id !== id);
+      
+      try {
+        await saveUserAssets(updatedAssets);
+        setUserAssets(updatedAssets);
+      } catch (error) {
+        alert('Failed to delete asset. Please try again.');
+      }
+    }
+  };
+
+  const handleEditAsset = async (id: string) => {
     // For now, just delete and let user add again
     // In a real implementation, you might want to show a form to edit price/quantity
     if (confirm('Edit will remove the current listing. You can add it again with new settings.')) {
-      setUserAssets(prev => prev.filter(asset => asset.id !== id));
+      const updatedAssets = userAssets.filter(asset => asset.id !== id);
+      
+      try {
+        await saveUserAssets(updatedAssets);
+        setUserAssets(updatedAssets);
+      } catch (error) {
+        alert('Failed to edit asset. Please try again.');
+      }
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Loading your assets...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if user is not authenticated
+  if (!currentUser) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-8">
+          <h2 className="text-xl mb-4">Authentication Required</h2>
+          <p className="text-muted-foreground">Please sign in to view your assets.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if user is not a node runner
+  if (!isNodeRunner) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-8">
+          <h2 className="text-xl mb-4">Node Runner Access Required</h2>
+          <p className="text-muted-foreground">This dashboard is only available to Lightning node operators who can list Taproot Assets for sale.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -163,63 +219,19 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
           <p className="text-muted-foreground">
             Manage your Taproot Asset listings
           </p>
-        </div>
-        <div className="relative" ref={dropdownRef}>
-          <button 
-            onClick={() => {
-              if (!showAssetDropdown) {
-                fetchAvailableAssets();
-              }
-              setShowAssetDropdown(!showAssetDropdown);
-            }}
-            disabled={isLoadingAssets}
-            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-            {isLoadingAssets ? 'Loading...' : 'Add Asset'}
-            <ChevronDown className="w-4 h-4" />
-          </button>
-          
-          {showAssetDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-              <div className="p-4 border-b border-border">
-                <h3 className="text-sm font-medium">Available Assets</h3>
-                <p className="text-xs text-muted-foreground">Select an asset to add to your listings</p>
-              </div>
-              
-              {isLoadingAssets ? (
-                <div className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Loading assets...</p>
-                </div>
-              ) : availableAssets.length > 0 ? (
-                <div className="p-2">
-                  {availableAssets.map((asset) => (
-                    <button
-                      key={asset.id}
-                      onClick={() => handleSelectAssetForListing(asset)}
-                      className="w-full p-3 text-left hover:bg-accent rounded-lg transition-colors border-b border-border last:border-b-0"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium">{asset.name}</h4>
-                          <p className="text-xs text-muted-foreground">{asset.symbol}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Available: {asset.available}</p>
-                          <p className="text-xs text-muted-foreground">Total: {asset.totalSupply}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground">No assets available</p>
-                </div>
-              )}
-            </div>
+          {currentUser && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Node: {currentUser.alias || currentUser.pubkey.slice(0, 8)}...
+            </p>
           )}
         </div>
+        <button 
+          onClick={() => setShowListingForm(true)}
+          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Asset
+        </button>
       </div>
 
       {/* Simple Stats */}
@@ -310,12 +322,7 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
               Start by creating your first Taproot Asset listing
             </p>
             <button 
-              onClick={() => {
-                if (!showAssetDropdown) {
-                  fetchAvailableAssets();
-                }
-                setShowAssetDropdown(!showAssetDropdown);
-              }}
+              onClick={() => setShowListingForm(true)}
               className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
             >
               Add First Asset
@@ -325,15 +332,22 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
       </div>
 
       {/* Listing Form Modal */}
-      {showListingForm && selectedAsset && (
+      {showListingForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Create Listing for {selectedAsset.name}</h2>
+              <h2 className="text-lg font-semibold">Create New Asset Listing</h2>
               <button 
                 onClick={() => {
                   setShowListingForm(false);
-                  setSelectedAsset(null);
+                  setListingForm({
+                    name: "",
+                    symbol: "",
+                    price: "",
+                    priceUnit: "BTC",
+                    available: "",
+                    status: "Draft"
+                  });
                 }}
                 className="text-muted-foreground hover:text-foreground"
               >
@@ -342,9 +356,27 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
             </div>
             
             <div className="space-y-4">
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-sm font-medium">{selectedAsset.name}</p>
-                <p className="text-xs text-muted-foreground">{selectedAsset.symbol} • Total Supply: {selectedAsset.totalSupply}</p>
+              <div>
+                <label className="block text-sm font-medium mb-1">Asset Name *</label>
+                <input
+                  type="text"
+                  value={listingForm.name}
+                  onChange={(e) => setListingForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., My Custom Token"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Asset Symbol *</label>
+                <input
+                  type="text"
+                  value={listingForm.symbol}
+                  onChange={(e) => setListingForm(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., MCT"
+                  maxLength={10}
+                />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -384,7 +416,7 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
                   placeholder="e.g., 10,000"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Maximum available: {selectedAsset.available}
+                  Enter the total quantity available for sale
                 </p>
               </div>
               
@@ -405,7 +437,14 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
               <button
                 onClick={() => {
                   setShowListingForm(false);
-                  setSelectedAsset(null);
+                  setListingForm({
+                    name: "",
+                    symbol: "",
+                    price: "",
+                    priceUnit: "BTC",
+                    available: "",
+                    status: "Draft"
+                  });
                 }}
                 className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
               >

@@ -1,6 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
-import { albyAuth } from '../services/albyAuth';
+import { auth } from '../services/auth';
 
 interface Props {
   children: ReactNode;
@@ -58,9 +58,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   handleReconnect = async () => {
     try {
-      const credentials = albyAuth.getStoredCredentials();
+      const credentials = auth.getStoredCredentials();
       if (credentials) {
-        await albyAuth.connectWithAlby(credentials);
+        await auth.connectWithCredentials(credentials);
         this.handleRetry();
       }
     } catch (error) {
@@ -220,9 +220,9 @@ export const useErrorRecovery = () => {
   const reconnectWallet = async () => {
     setIsRetrying(true);
     try {
-      const credentials = albyAuth.getStoredCredentials();
+      const credentials = auth.getStoredCredentials();
       if (credentials) {
-        await albyAuth.connectWithAlby(credentials);
+        await auth.connectWithCredentials(credentials);
         clearError();
       } else {
         throw new Error('No stored credentials found');

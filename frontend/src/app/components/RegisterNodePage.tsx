@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Zap, Wallet, Server, ArrowRight, ExternalLink, CheckCircle } from "lucide-react";
-import { albyAuth, AlbyUser, NetworkConfig } from "../services/albyAuth";
+import { auth, User as AuthUser, NetworkConfig } from "../services/auth";
 
 interface RegisterNodePageProps {
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
-  onLogin: (userType: 'user' | 'node', userData: AlbyUser) => void;
+  onLogin: (userType: 'user' | 'node', userData: AuthUser) => void;
   params?: Record<string, unknown>;
 }
 
@@ -22,7 +22,7 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
   useEffect(() => {
     if (params?.selectedNetwork) {
       const selectedNetwork = params.selectedNetwork as NetworkConfig;
-      albyAuth.setNetwork(selectedNetwork.name);
+      auth.setNetwork(selectedNetwork.name);
     }
   }, [params?.selectedNetwork]);
 
@@ -40,19 +40,19 @@ export function RegisterNodePage({ onNavigate, onLogin, params }: RegisterNodePa
         throw new Error('Please enter a node alias');
       }
 
-      // First connect with Alby to test credentials and get client
-      const user = await albyAuth.connectWithAlby(formData.nwcCredentials);
+      // First connect to test credentials and get client
+      const user = await auth.connectWithCredentials(formData.nwcCredentials);
       
       // Sign a verification message to prove node ownership
       const verificationMessage = `TapHub Node Registration - ${formData.alias} - ${Date.now()}`;
-      const signResult = await albyAuth.signMessage(verificationMessage);
+      const signResult = await auth.signMessage(verificationMessage);
       
       if (!signResult.signature) {
         throw new Error('Failed to sign verification message. Please check your NWC credentials.');
       }
 
       // Then register as a node with signature proof
-      const nodeUser = await albyAuth.registerAsNode({
+      const nodeUser = await auth.registerAsNode({
         pubkey: formData.pubkey || user.pubkey,
         alias: formData.alias,
         description: formData.description,

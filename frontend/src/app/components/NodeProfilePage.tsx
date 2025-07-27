@@ -1,5 +1,6 @@
 import { Zap, Shield, Network, Copy, Plus, CheckCircle } from "lucide-react";
-import { albyAuth, AlbyUser } from "../services/albyAuth";
+import { auth, User as AuthUser } from "../services/auth";
+import { truncateUsername } from "../utils/stringUtils";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
@@ -10,7 +11,7 @@ interface NodeProfilePageProps {
 export function NodeProfilePage({
   onNavigate: _onNavigate,
 }: NodeProfilePageProps) {
-  const [user, setUser] = useState<AlbyUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [walletInfo, setWalletInfo] = useState<{ alias?: string; balance?: number; pubkey?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -26,12 +27,12 @@ export function NodeProfilePage({
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const currentUser = albyAuth.getCurrentUser();
+        const currentUser = auth.getCurrentUser();
         setUser(currentUser);
         
-        if (currentUser && albyAuth.isAuthenticated()) {
+        if (currentUser && auth.isAuthenticated()) {
           try {
-            const info = await albyAuth.getWalletInfo();
+            const info = await auth.getWalletInfo();
             setWalletInfo(info);
           } catch (error) {
             console.log('Could not fetch wallet info:', error);
@@ -59,7 +60,7 @@ export function NodeProfilePage({
       const amount = Number(invoiceAmount);
       const description = invoiceDescription || `Payment request from ${user?.alias || 'TapHub'}`;
       
-      const invoice = await albyAuth.makeInvoice(amount, description);
+      const invoice = await auth.makeInvoice(amount, description);
       setCreatedInvoice(invoice);
       
       // Generate QR code
@@ -126,7 +127,7 @@ export function NodeProfilePage({
     );
   }
 
-  const currentNetwork = albyAuth.getCurrentNetwork();
+  const currentNetwork = auth.getCurrentNetwork();
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Node Header */}
@@ -140,7 +141,7 @@ export function NodeProfilePage({
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-2xl">
-                    ⚡ {user.alias || user.email || 'Lightning User'}
+                    ⚡ {truncateUsername(user.alias || user.email || 'Lightning User')}
                   </h1>
                   <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-xs flex items-center gap-1">
                     <Shield className="w-3 h-3" />
@@ -194,7 +195,7 @@ export function NodeProfilePage({
                 Connection
               </p>
               <p className="text-xl">
-                {albyAuth.isAuthenticated() ? 'Connected' : 'Offline'}
+                {auth.isAuthenticated() ? 'Connected' : 'Offline'}
               </p>
             </div>
           </div>
@@ -237,14 +238,14 @@ export function NodeProfilePage({
               <p className="text-sm text-muted-foreground">
                 Wallet
               </p>
-              <p className="text-xl">{walletInfo?.alias || 'Connected'}</p>
+              <p className="text-xl">{truncateUsername(walletInfo?.alias || 'Connected')}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Invoice Creation for Node Runners */}
-      {user.type === 'node' && albyAuth.isAuthenticated() && (
+      {user.type === 'node' && auth.isAuthenticated() && (
         <div className="bg-card border border-border rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl">Create Lightning Invoice</h2>

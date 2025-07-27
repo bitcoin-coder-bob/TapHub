@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowUpRight, ArrowDownLeft, Clock, RefreshCw } from "lucide-react";
-import { albyAuth } from "../services/albyAuth";
+import { auth } from "../services/auth";
 import { ErrorDisplay, useErrorRecovery } from "./ErrorBoundary";
 
 interface Transaction {
@@ -26,7 +26,7 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [connectionState, setConnectionState] = useState(albyAuth.getConnectionState());
+  const [connectionState, setConnectionState] = useState(auth.getConnectionState());
   const isFetchingRef = useRef(false);
 
   console.log('TransactionHistory: Render - isLoading:', isLoading, 'connectionState:', connectionState, 'transactions:', transactions.length, 'error:', error?.message);
@@ -44,7 +44,7 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
       setError(null);
       
       console.log('TransactionHistory: Starting fetch...');
-      const txHistory = await albyAuth.getTransactions();
+      const txHistory = await auth.getTransactions();
       console.log('TransactionHistory: Fetch completed, got', txHistory.length, 'transactions');
       
       console.log('TransactionHistory: Setting transactions');
@@ -63,7 +63,7 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
     console.log('TransactionHistory: useEffect running');
     
     // Only fetch transactions if user is authenticated and connected
-    const currentConnectionState = albyAuth.getConnectionState();
+    const currentConnectionState = auth.getConnectionState();
     console.log('TransactionHistory: Current connection state:', currentConnectionState);
     setConnectionState(currentConnectionState);
     
@@ -76,7 +76,7 @@ export function TransactionHistory({ onNavigate }: TransactionHistoryProps) {
     }
     
     // Subscribe to connection state changes
-    const unsubscribe = albyAuth.onConnectionStateChange((state) => {
+    const unsubscribe = auth.onConnectionStateChange((state) => {
       console.log('TransactionHistory: Connection state changed to:', state);
       setConnectionState(state);
       

@@ -12,17 +12,17 @@ import { AssetPurchaseFlow } from "./components/AssetPurchaseFlow";
 import { AssetDetailPage } from "./components/AssetDetailPage";
 import { TransactionHistory } from "./components/TransactionHistory";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { albyAuth, AlbyUser } from "./services/albyAuth";
+import { auth, User as AuthUser } from "./services/auth";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("home");
   const [pageParams, setPageParams] = useState<Record<string, unknown>>({});
-  const [user, setUser] = useState<AlbyUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check for existing authentication on mount
   useEffect(() => {
-    const currentUser = albyAuth.getCurrentUser();
+    const currentUser = auth.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
     }
@@ -35,12 +35,12 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleLogin = (userType: 'user' | 'node', userData: AlbyUser) => {
+  const handleLogin = (userType: 'user' | 'node', userData: AuthUser) => {
     setUser(userData);
   };
 
   const handleLogout = () => {
-    albyAuth.logout();
+    auth.logout();
     setUser(null);
     navigate('home');
   };
@@ -59,7 +59,7 @@ export default function App() {
         return <RegisterNodePage onNavigate={navigate} onLogin={handleLogin} params={pageParams} />;
       case "dashboard":
         // Check if user is a node runner
-        if (!user || !albyAuth.isNodeRunner()) {
+        if (!user || !auth.isNodeRunner()) {
           // Redirect non-node runners to discover page
           navigate('discover');
           return <AssetDiscoveryPage onNavigate={navigate as (page: string, params: unknown) => void} />;

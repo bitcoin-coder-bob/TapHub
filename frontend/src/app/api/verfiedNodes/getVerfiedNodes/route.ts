@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
-import mongo from "mongodb";
+import { withMongoConnection } from "../../../utils/mongoUtils";
 
 export async function GET() {
-  const client = new mongo.MongoClient(process.env.MONGODB_URI!);
-  await client.connect();
+  try {
+    const pubkeys = await withMongoConnection(async (db) => {
+      const collection = db.collection("nodes");
+      const nodes = await collection.find({}, { projection: { pubkey: 1, _id: 0 } }).toArray();
+      
+      // Extract just the pubkeys
+      return nodes.map(node => node.pubkey);
+    });
 
-  const db = client.db("nodes");
-  const collection = db.collection("nodes");
-
-  const nodes = await collection.find({}, { projection: { pubkey: 1, _id: 0 } }).toArray();
-  
-  // Extract just the pubkeys
-  const pubkeys = nodes.map(node => node.pubkey);
-
-  await client.close();
-
-  return NextResponse.json(pubkeys);
+    return NextResponse.json(pubkeys);
+  } catch (error) {
+    console.error("Error fetching verified nodes:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch verified nodes" },
+      { status: 500 }
+    );
+  }
 }
