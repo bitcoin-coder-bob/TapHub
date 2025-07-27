@@ -403,14 +403,14 @@ export function NodeProfilePage({
           }
         </p>
         
-        {currentNetwork.name === 'mutinynet' && (
+        {currentNetwork.name === 'regtest' && (
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
             <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
               <Network className="w-4 h-4" />
               <span className="text-sm font-medium">Testing on {currentNetwork.displayName}</span>
             </div>
             <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-              You&apos;re connected to the test network. Perfect for development and testing your Lightning setup!
+              You&apos;re connected to the regtest network. Perfect for development and testing your Lightning setup!
             </p>
           </div>
         )}

@@ -18,7 +18,7 @@ export interface NodeRegistrationData {
 }
 
 export interface NetworkConfig {
-  name: 'mainnet' | 'testnet' | 'mutinynet';
+  name: 'mainnet' | 'testnet' | 'regtest';
   displayName: string;
   description: string;
 }
@@ -55,9 +55,9 @@ class AlbyAuthService {
   private nwcClient: nwc.NWCClient | null = null;
   private permissions: string[] = [];
   private currentNetwork: NetworkConfig = {
-    name: 'mutinynet',
-    displayName: 'Mutinynet',
-    description: 'Bitcoin Testnet for Lightning Network development'
+    name: 'regtest',
+    displayName: 'Regtest',
+    description: 'Bitcoin Regtest for Lightning Network development'
   };
   private connectionState: ConnectionState = 'disconnected';
   private connectionCheckInterval: NodeJS.Timeout | null = null;
@@ -700,25 +700,26 @@ class AlbyAuthService {
         displayName: 'Bitcoin Testnet',
         description: 'Bitcoin test network'
       },
-      mutinynet: {
-        name: 'mutinynet',
-        displayName: 'Mutinynet',
-        description: 'Bitcoin Testnet for Lightning Network development'
+      regtest: {
+        name: 'regtest',
+        displayName: 'Regtest',
+        description: 'Bitcoin Regtest for Lightning Network development'
       }
     };
     
-    this.currentNetwork = networkConfigs[network];
+    // If the network doesn't exist (e.g., old 'mutinynet'), default to regtest
+    this.currentNetwork = networkConfigs[network] || networkConfigs['regtest'];
     if (typeof window !== 'undefined') {
-      localStorage.setItem('taphub_network', network);
+      localStorage.setItem('taphub_network', this.currentNetwork.name);
     }
   }
 
   getAvailableNetworks(): NetworkConfig[] {
     return [
       {
-        name: 'mutinynet',
-        displayName: 'Mutinynet',
-        description: 'Bitcoin Testnet for Lightning Network development (Recommended for testing)'
+        name: 'regtest',
+        displayName: 'Regtest',
+        description: 'Bitcoin Regtest for Lightning Network development (Recommended for testing)'
       },
       {
         name: 'testnet',
@@ -736,9 +737,17 @@ class AlbyAuthService {
   // Initialize network from storage
   private initializeNetwork(): void {
     if (typeof window !== 'undefined') {
-      const storedNetwork = localStorage.getItem('taphub_network') as NetworkConfig['name'] | null;
+      const storedNetwork = localStorage.getItem('taphub_network') as string | null;
       if (storedNetwork) {
-        this.setNetwork(storedNetwork);
+        // Handle migration from old 'mutinynet' to new 'regtest'
+        if (storedNetwork === 'mutinynet') {
+          this.setNetwork('regtest');
+        } else if (['mainnet', 'testnet', 'regtest'].includes(storedNetwork)) {
+          this.setNetwork(storedNetwork as NetworkConfig['name']);
+        } else {
+          // Default to regtest for any unknown network
+          this.setNetwork('regtest');
+        }
       }
     }
   }

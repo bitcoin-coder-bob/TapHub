@@ -158,22 +158,14 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
               </label>
             ))}
           </div>
-          {selectedNetwork.name === 'mutinynet' && (
+          {selectedNetwork.name === 'regtest' && (
             <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
               <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
                 <Zap className="w-4 h-4" />
-                <span className="text-sm font-medium">Mutinynet Selected</span>
+                <span className="text-sm font-medium">Regtest Selected</span>
               </div>
               <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                Perfect for testing! Get test sats from{' '}
-                <a 
-                  href="https://faucet.mutinynet.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="underline hover:no-underline"
-                >
-                  faucet.mutinynet.com
-                </a>
+                Perfect for testing! Using local regtest environment with Polar setup.
               </p>
             </div>
           )}
