@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import mongo from "mongodb";
 
 export async function POST(request: NextRequest) {
+  let client: mongo.MongoClient | null = null;
+  
   try {
-    const client = new mongo.MongoClient(process.env.MONGODB_URI!);
+    client = new mongo.MongoClient(process.env.MONGODB_URI!);
     await client.connect();
 
     const db = client.db("nodes");
@@ -44,8 +46,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    await client.close();
-
     return NextResponse.json({
       success: true,
       result,
@@ -57,5 +57,13 @@ export async function POST(request: NextRequest) {
       { error: "Failed to save node assets" },
       { status: 500 }
     );
+  } finally {
+    if (client) {
+      try {
+        await client.close();
+      } catch (closeError) {
+        console.error("Error closing MongoDB connection:", closeError);
+      }
+    }
   }
 } 

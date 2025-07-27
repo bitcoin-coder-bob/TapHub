@@ -29,6 +29,10 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     status: "Draft" as "Active" | "Draft"
   });
 
+  // Check if user is authenticated and is a node runner
+  const currentUser = auth.getCurrentUser();
+  const isNodeRunner = auth.isNodeRunner();
+
   // Get the current user's pubkey
   const getNodePubkey = (): string => {
     const currentUser = auth.getCurrentUser();
@@ -43,15 +47,19 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     setIsLoading(true);
     try {
       const nodePubkey = getNodePubkey();
+      console.log('Fetching assets for node:', nodePubkey);
+      
       const response = await fetch(`/api/verfiedNodes/getNodeAssets?nodePubkey=${nodePubkey}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('Assets fetched successfully:', data.assets);
         setUserAssets(data.assets || []);
       } else if (response.status === 404) {
         // No assets found for this node, start with empty array
+        console.log('No assets found for this node, starting with empty array');
         setUserAssets([]);
       } else {
-        console.error('Failed to fetch user assets');
+        console.error('Failed to fetch user assets:', response.status, response.statusText);
         setUserAssets([]);
       }
     } catch (error) {
@@ -158,11 +166,36 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
     }
   };
 
+  // Show loading state
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center py-8">
           <p className="text-muted-foreground">Loading your assets...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if user is not authenticated
+  if (!currentUser) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-8">
+          <h2 className="text-xl mb-4">Authentication Required</h2>
+          <p className="text-muted-foreground">Please sign in to view your assets.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if user is not a node runner
+  if (!isNodeRunner) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-8">
+          <h2 className="text-xl mb-4">Node Runner Access Required</h2>
+          <p className="text-muted-foreground">This dashboard is only available to Lightning node operators who can list Taproot Assets for sale.</p>
         </div>
       </div>
     );
@@ -186,6 +219,11 @@ export function AssetListingDashboard({ onNavigate: _ }: AssetListingDashboardPr
           <p className="text-muted-foreground">
             Manage your Taproot Asset listings
           </p>
+          {currentUser && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Node: {currentUser.alias || currentUser.pubkey.slice(0, 8)}...
+            </p>
+          )}
         </div>
         <button 
           onClick={() => setShowListingForm(true)}

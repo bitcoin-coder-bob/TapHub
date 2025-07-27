@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import mongo from "mongodb";
 
 export async function GET(request: NextRequest) {
+  let client: mongo.MongoClient | null = null;
+  
   try {
     const { searchParams } = new URL(request.url);
     const nodePubkey = searchParams.get('nodePubkey');
@@ -13,15 +15,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = new mongo.MongoClient(process.env.MONGODB_URI!);
+    client = new mongo.MongoClient(process.env.MONGODB_URI!);
     await client.connect();
 
     const db = client.db("nodes");
     const collection = db.collection("nodeAssets");
 
     const nodeAssets = await collection.findOne({ nodePubkey });
-
-    await client.close();
 
     if (!nodeAssets) {
       return NextResponse.json(
@@ -43,5 +43,13 @@ export async function GET(request: NextRequest) {
       { error: "Failed to fetch node assets" },
       { status: 500 }
     );
+  } finally {
+    if (client) {
+      try {
+        await client.close();
+      } catch (closeError) {
+        console.error("Error closing MongoDB connection:", closeError);
+      }
+    }
   }
 } 
