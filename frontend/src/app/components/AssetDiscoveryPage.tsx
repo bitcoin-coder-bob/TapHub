@@ -76,9 +76,10 @@ export function AssetDiscoveryPage({ onNavigate }: AssetDiscoveryPageProps) {
               
               allAssets.push(...assetsWithNode);
             }
+            // Silently ignore 404s - it just means the node has no assets
           } catch (error) {
-            console.error(`Failed to fetch assets for node ${nodePubkey}:`, error);
-            // Continue with other nodes even if one fails
+            // Only log unexpected errors, not 404s
+            console.error(`Unexpected error fetching assets for node ${nodePubkey}:`, error);
           }
         }
 
