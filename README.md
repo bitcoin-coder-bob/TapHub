@@ -20,3 +20,24 @@ A web platform where:
 - Users browse available assets and providers
 - Simple one-click purchase flow using Lightning payments
 - Reputation system for asset providers
+
+## Development Setup
+
+### Prerequisites
+- Install [Polar](https://lightningpolar.com/) for Lightning Network regtest setup
+- Create a new network with at least one node (Alice with LND + TAP enabled)
+- For full testing: Add Bob and Carol nodes (with LND + TAP enabled for both)
+- Start the network and ensure nodes are running
+
+### Go Backend
+```bash
+# Update paths to match your Polar network setup
+go run cmd/server/main.go -port 8082 -rpcserverLnd 127.0.0.1:10001 -rpcserverTap 127.0.0.1:12029 -tap-tlscertPath "/Users/[user]/.polar/networks/1/volumes/tapd/alice-tap/tls.cert" -tap-macaroonPath "/Users/[user]/.polar/networks/1/volumes/tapd/alice-tap/data/regtest/admin.macaroon" -lnd-tlscertPath "/Users/[user]/.polar/networks/1/volumes/lnd/alice/tls.cert" -lnd-macaroonPath "/Users/[user]/.polar/networks/1/volumes/lnd/alice/data/chain/bitcoin/regtest/admin.macaroon" -network regtest
+```
+
+### Frontend
+```bash
+cd frontend
+bun i
+bun run dev
+```
