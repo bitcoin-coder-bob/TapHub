@@ -22,9 +22,10 @@ Demo scripts for Lightning Network and Taproot Assets trading platform.
 The demo showcases a complete asset trading flow between Alice and Bob:
 
 ### Part 1: Edge Node Registration (1 min)
-- Bob mints BobBux asset
-- Sets pricing and availability
-- Registers on TapHub marketplace
+- Bob registers as edge runner on TapHub platform
+- Proves node ownership through cryptographic verification
+- Demonstrates asset minting and receiving capabilities
+- Bob mints BobBux asset and sets pricing/availability
 
 ### Part 2: User Journey (3 min)  
 - Alice browses marketplace
@@ -42,7 +43,10 @@ The demo showcases a complete asset trading flow between Alice and Bob:
 ## Quick Start
 
 ```bash
-# Run the demo
+# Run edge node registration (proves ownership and capabilities)
+./edge_node_registration.sh bob
+
+# Run the full demo
 ./taphub_demo.sh
 
 # Test node connections
@@ -135,10 +139,41 @@ export CAROL_TAP_RPC_SERVER="127.0.0.1:12031"
 
 ## Script Files
 
+- `edge_node_registration.sh` - Edge runner registration with ownership verification
 - `taphub_demo.sh` - Main demo with complete asset trading flow
 - `config.sh` - Multi-node configuration and helper functions
 - `polar_litcli_flow.sh` - Original litcli flow reference
 - `polar_lncli_flow.sh` - Original lncli flow reference
+
+### Edge Node Registration
+
+The `edge_node_registration.sh` script guides users through proving ownership of their Lightning Node and registering as a TapHub edge runner:
+
+```bash
+# Register Bob's node
+./edge_node_registration.sh bob
+
+# Register Alice's node  
+./edge_node_registration.sh alice
+
+# Register Carol's node
+./edge_node_registration.sh carol
+```
+
+**What it does:**
+- Verifies Lightning Node and Taproot Assets connectivity
+- Checks node capabilities (channels, balance, assets)
+- Signs cryptographic challenge to prove node ownership
+- Tests asset minting and receiving capabilities
+- Generates JSON registration file with ownership proof
+- Provides verification data for TapHub platform submission
+
+**Key lncli/tapd commands demonstrated:**
+- `lncli getinfo` - Node status and public key
+- `lncli signmessage` / `lncli verifymessage` - Ownership proof
+- `lncli listchannels` / `lncli walletbalance` - Capability assessment
+- `tapcli assets list` / `tapcli assets mint` - Asset operations
+- `tapcli addrs new` - Address generation testing
 
 ## Flow Architecture
 
